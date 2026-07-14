@@ -57,7 +57,7 @@ object CraftApi {
         }
         val zutaten = inputs.joinToString(", ") { "${it.name} (${it.id})" }
         val turns = listOf(LlmClient.Turn(LlmClient.Turn.ROLE_USER, "Der Spieler verbindet: $zutaten."))
-        val raw = LlmClient.chat(context, system, turns, maxTokens = 1024)
+        val raw = LlmClient.chat(context, system, turns, maxTokens = 1024, schema = Schemas.craft())
         val json = LlmClient.extractJson(raw)
 
         val erfolg = json.optString("ergebnis").equals("neu", ignoreCase = true)

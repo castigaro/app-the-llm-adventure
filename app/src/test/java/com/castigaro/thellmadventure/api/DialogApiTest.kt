@@ -100,6 +100,22 @@ class DialogApiTest {
     }
 
     @Test
+    fun `Prosa statt JSON wird einmal mit Fehler-Feedback wiederholt`() {
+        val (save, npc) = saveWithNpc("Wächter")
+        server.enqueue(anthropic("Die Zeichen, die du überall siehst, sind uralt."))
+        server.enqueue(anthropic(JSONObject().apply {
+            put("sag", "Also gut.")
+            put("optionen", JSONArray().put("Danke."))
+            put("effekte", JSONArray())
+        }.toString()))
+
+        val turn = DialogApi.turn(context, save, npc, gewaehlteOption = null)
+
+        assertEquals("Also gut.", turn.sag)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
     fun `Gespraech beginnt und endet immer mit einer User-Nachricht`() {
         val (save, npc) = saveWithNpc("Wächter")
         // Frühere Unterhaltung: Eröffnung der Figur (assistant) steht am Anfang

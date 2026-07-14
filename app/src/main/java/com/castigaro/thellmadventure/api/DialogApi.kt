@@ -63,8 +63,22 @@ object DialogApi {
         }
 
         val turns = buildTurns(save, npc, gewaehlteOption)
-        val raw = LlmClient.chat(context, system, turns, maxTokens = 1024)
-        return parse(LlmClient.extractJson(raw), save, npc, erlaubt.toSet(), darfErschaffen)
+        val raw = LlmClient.chat(context, system, turns, maxTokens = 1024, schema = Schemas.dialog())
+        return try {
+            parse(LlmClient.extractJson(raw), save, npc, erlaubt.toSet(), darfErschaffen)
+        } catch (e: Exception) {
+            if (e is LlmClient.ApiException && !e.message.orEmpty().startsWith("Antwort nicht lesbar")) throw e
+            // Modell hat Prosa statt JSON geliefert (imitiert die Klartext-
+            // Historie) → einmal mit Fehler-Feedback erneut versuchen.
+            val retryTurns = turns +
+                LlmClient.Turn(LlmClient.Turn.ROLE_ASSISTANT, raw) +
+                LlmClient.Turn(
+                    LlmClient.Turn.ROLE_USER,
+                    "Deine Antwort war ungültig (${e.message}). Antworte erneut, NUR mit dem JSON-Objekt nach Schema.",
+                )
+            val raw2 = LlmClient.chat(context, system, retryTurns, maxTokens = 1024, schema = Schemas.dialog())
+            parse(LlmClient.extractJson(raw2), save, npc, erlaubt.toSet(), darfErschaffen)
+        }
     }
 
     /**

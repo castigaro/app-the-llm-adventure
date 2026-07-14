@@ -144,4 +144,26 @@ object Schemas {
         "zielHier" to bool(),
         "musikNeu" to nullable(melodie()),
     )
+
+    /** Antwort eines NPC-Gesprächszugs. */
+    fun dialog(): JSONObject = obj(
+        "sag" to str(),
+        "optionen" to arr(str()),
+        "effekte" to arr(str()),
+        "neues_item" to nullable(item()),
+    )
+
+    /** Urteil einer Objekt-Interaktion. */
+    fun mutation(): JSONObject = obj(
+        "text" to str(),
+        "erfolg" to bool(),
+        "effekte" to arr(str()),
+    )
+
+    /** Urteil einer Crafting-Kombination. */
+    fun craft(): JSONObject = obj(
+        "ergebnis" to enumStr(listOf("neu", "unmoeglich")),
+        "text" to str(),
+        "item" to nullable(item()),
+    )
 }

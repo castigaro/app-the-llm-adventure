@@ -59,7 +59,7 @@ object MutationApi {
             "Der Spieler benutzt „${prop.name}“ (${prop.id})."
         }
         val turns = listOf(LlmClient.Turn(LlmClient.Turn.ROLE_USER, aktion))
-        val raw = LlmClient.chat(context, system, turns, maxTokens = 1024)
+        val raw = LlmClient.chat(context, system, turns, maxTokens = 1024, schema = Schemas.mutation())
         val json = LlmClient.extractJson(raw)
 
         val text = json.optString("text").ifBlank { "Nichts geschieht." }.take(300)

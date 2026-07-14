@@ -369,9 +369,12 @@ class IsoView @JvmOverloads constructor(
         entities.sortBy { it.first }
         entities.forEach { it.second() }
 
-        // Türnamen zuletzt: nichts darf sie verdecken. Über labelScale bleiben
-        // sie unabhängig vom Pinch-Zoom gleich groß am Bildschirm.
-        val labelScale = if (camera.zoom > 0f && camera.baseZoom > 0f) camera.baseZoom / camera.zoom else 1f
+        // Türnamen zuletzt: nichts darf sie verdecken. Beim Ranzoomen wachsen
+        // sie mit der Welt mit (scale=1); nur beim Rauszoomen wird kompensiert,
+        // damit sie am Bildschirm nie unter die lesbare Größe schrumpfen.
+        val labelScale = if (camera.zoom > 0f && camera.baseZoom > 0f) {
+            (camera.baseZoom / camera.zoom).coerceAtLeast(1f)
+        } else 1f
         RoomRenderer.drawDoorLabels(canvas, r, timeMs, labelScale)
 
         canvas.restore()
