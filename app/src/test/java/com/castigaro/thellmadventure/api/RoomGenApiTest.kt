@@ -66,7 +66,7 @@ class RoomGenApiTest {
         return GameSave(name = "T", world = world, roomId = origin.id)
     }
 
-    private fun validAnswer(): String = JSONObject().apply {
+    private fun validAnswer(zielHier: Boolean = false): String = JSONObject().apply {
         put("raum", JSONObject().apply {
             put("name", "Stille Kammer")
             put("breite", 8)
@@ -79,8 +79,21 @@ class RoomGenApiTest {
             put("figuren", JSONArray())
         })
         put("fakt", "Hier riecht es nach altem Papier.")
-        put("zielHier", false)
+        put("zielHier", zielHier)
     }.toString()
+
+    /** Verstecktes Zielobjekt samt Story in die Welt einhängen. */
+    private fun hiddenGoal(save: GameSave): Item {
+        val world = save.world
+        val ziel = Item(world.nextId("i"), "Amulett", holder = StorySynthApi.HOLDER_HIDDEN)
+        world.addItem(ziel)
+        world.story = Story(
+            titel = "Das Echo",
+            praemisse = "Etwas wartet.",
+            geheimesZiel = SecretGoal(GoalType.BESITZE_ITEM, ziel.id, umschreibung = "Das Amulett"),
+        )
+        return ziel
+    }
 
     @Test
     fun `erzeugter Raum wird manifestiert und die Tuer verdrahtet`() {
@@ -137,13 +150,7 @@ class RoomGenApiTest {
     fun `Zielobjekt wird kurz vor dem Raumlimit zwangsplatziert`() {
         val save = saveWithOrigin()
         val world = save.world
-        val ziel = Item(world.nextId("i"), "Amulett", holder = StorySynthApi.HOLDER_HIDDEN)
-        world.addItem(ziel)
-        world.story = Story(
-            titel = "Das Echo",
-            praemisse = "Etwas wartet.",
-            geheimesZiel = SecretGoal(GoalType.BESITZE_ITEM, ziel.id, umschreibung = "Das Amulett"),
-        )
+        val ziel = hiddenGoal(save)
         // Welt bis kurz vor das Limit füllen → forcePlace greift trotz zielHier=false
         while (world.rooms.size < Limits.MAX_RAEUME - 2) {
             world.addRoom(Room(world.nextId("r"), "Füllraum", 6, 4))
@@ -154,6 +161,39 @@ class RoomGenApiTest {
         val room = RoomGenApi.generate(context, save, origin, origin.doors.first())
 
         // Das Ziel liegt jetzt in einer Requisite des neuen Raums
+        assertTrue(ziel.holder.startsWith("prop:"))
+        assertTrue(room.props.any { it.itemId == ziel.id })
+    }
+
+    @Test
+    fun `Zielobjekt wird vor der Mindestraumzahl nicht platziert`() {
+        val save = saveWithOrigin()
+        val ziel = hiddenGoal(save)
+        // Nur der Startraum existiert — die KI will das Ziel trotzdem verstecken.
+        server.enqueue(anthropic(validAnswer(zielHier = true)))
+
+        val origin = save.world.room(save.roomId)!!
+        val room = RoomGenApi.generate(context, save, origin, origin.doors.first())
+
+        // Der Guard ignoriert zielHier: Das Ziel bleibt verborgen.
+        assertEquals(StorySynthApi.HOLDER_HIDDEN, ziel.holder)
+        assertTrue(room.props.none { it.itemId == ziel.id })
+    }
+
+    @Test
+    fun `Zielobjekt darf ab der Mindestraumzahl versteckt werden`() {
+        val save = saveWithOrigin()
+        val world = save.world
+        val ziel = hiddenGoal(save)
+        // Mit dem neuen Raum erreicht die Welt genau die Mindestraumzahl.
+        while (world.rooms.size < Limits.ZIEL_MIN_RAEUME - 1) {
+            world.addRoom(Room(world.nextId("r"), "Füllraum", 6, 4))
+        }
+        server.enqueue(anthropic(validAnswer(zielHier = true)))
+
+        val origin = world.room(save.roomId)!!
+        val room = RoomGenApi.generate(context, save, origin, origin.doors.first())
+
         assertTrue(ziel.holder.startsWith("prop:"))
         assertTrue(room.props.any { it.itemId == ziel.id })
     }

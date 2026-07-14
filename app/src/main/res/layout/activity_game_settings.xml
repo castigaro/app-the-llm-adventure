@@ -51,6 +51,13 @@
                 android:text="@string/settings_sfx" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchTts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/settings_tts" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchFullscreen"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

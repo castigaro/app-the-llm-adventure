@@ -12,6 +12,7 @@
     <string name="main_delete_save_message">„%1$s" wird endgültig gelöscht.</string>
     <string name="delete">Löschen</string>
     <string name="cancel">Abbrechen</string>
+    <string name="ok">OK</string>
 
     <!-- App-Menü -->
     <string name="menu_app_settings">App-Einstellungen</string>
@@ -80,6 +81,9 @@
     <string name="room_generating">Du drückst die Klinke — dahinter formt sich etwas …</string>
     <string name="room_entered">%1$s</string>
     <string name="world_growth_hint">Die Welt ist inzwischen weitläufig — jede weitere Erweiterung macht die KI-Anfragen etwas größer und langsamer.</string>
+    <string name="history_button">Verlauf</string>
+    <string name="history_title">Letzte Meldungen</string>
+    <string name="history_empty">Noch keine Meldungen.</string>
     <string name="item_taken">Du nimmst: %1$s</string>
     <string name="item_selected">%1$s ausgewählt — tippe ein Ziel an.</string>
     <string name="item_deselected">Auswahl aufgehoben.</string>
@@ -118,10 +122,12 @@
     <string name="settings_music">Hintergrundmusik</string>
     <string name="settings_music_volume">Musiklautstärke</string>
     <string name="settings_sfx">Soundeffekte</string>
+    <string name="settings_tts">Vorlesen (Sprachausgabe)</string>
     <string name="settings_fullscreen">Vollbild-Standard</string>
 
     <!-- Ende -->
     <string name="ending_title">Das geheime Ziel ist erreicht!</string>
-    <string name="ending_message">„%1$s" findet ihr Ende.\n\nDein Ziel war: %2$s\n\nEntdeckte Räume: %3$d\nSpielzeit: %4$d Min.</string>
-    <string name="ending_back">Zurück zum Anfang</string>
+    <string name="ending_message">„%1$s" findet ihr Ende.\n\nDein Ziel war: %2$s\n\nEntdeckte Räume: %3$d\nSpielzeit: %4$d Min.\n\nDie Welt bleibt dir offen — du kannst sie weiter erkunden.</string>
+    <string name="ending_continue">Weiterspielen</string>
+    <string name="ending_back">Zum Hauptmenü</string>
 </resources>

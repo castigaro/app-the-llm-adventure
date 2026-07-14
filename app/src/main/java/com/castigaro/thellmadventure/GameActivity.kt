@@ -17,6 +17,7 @@ import com.castigaro.thellmadventure.api.MutationApi
 import com.castigaro.thellmadventure.api.RoomGenApi
 import com.castigaro.thellmadventure.audio.MusicDirector
 import com.castigaro.thellmadventure.audio.Sfx
+import com.castigaro.thellmadventure.audio.Speaker
 import com.castigaro.thellmadventure.data.AppSettings
 import com.castigaro.thellmadventure.data.DialogMessage
 import com.castigaro.thellmadventure.data.GameSave
@@ -66,8 +67,10 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
     private lateinit var listAdapter: InventoryListAdapter
     private lateinit var crafting: CraftingController
     private lateinit var music: MusicDirector
+    private lateinit var speaker: Speaker
 
-    private val hideComment = Runnable { binding.commentBar.visibility = View.GONE }
+    /** Die letzten Meldungen der Kommentarzeile, neueste zuletzt. */
+    private val recentComments = ArrayDeque<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,7 +98,9 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
         binding.buttonMenu.setOnClickListener { showMenu() }
         binding.buttonRecenter.setOnClickListener { binding.isoView.recenterCamera() }
         binding.buttonInventoryToggle.setOnClickListener { toggleInventoryPanel() }
+        binding.buttonHistory.setOnClickListener { showRecentComments() }
         binding.buttonCraft.setOnClickListener { crafting.open() }
+        binding.commentBar.setOnClickListener { binding.commentBar.visibility = View.GONE }
         binding.dialogOverlay.dialogClose.setOnClickListener { closeDialog() }
 
         crafting = CraftingController(
@@ -104,6 +109,7 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             onCombine = ::onCraftCombine,
         )
         music = MusicDirector(this)
+        speaker = Speaker(this) { speaking -> music.duck(speaking) }
 
         // Zurück-Taste schließt zuerst offene Overlays.
         onBackPressedDispatcher.addCallback(this) {
@@ -120,6 +126,17 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
 
         enterRoom(save.roomId, save.ptx to save.pty)
         refreshInventory()
+
+        // Beim allerersten Start die Prämisse erzählen — sie bleibt als
+        // antippbare Meldung stehen und wird (falls aktiv) vorgelesen.
+        if (save.playtimeMs == 0L) {
+            save.world.story?.praemisse?.takeIf { it.isNotBlank() }?.let { comment(it) }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        speaker.shutdown()
     }
 
     override fun onResume() {
@@ -133,6 +150,7 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
     override fun onPause() {
         super.onPause()
         binding.isoView.animate = false
+        speaker.stop()
         music.stop()
         save.playtimeMs += System.currentTimeMillis() - resumedAt
         autosave()
@@ -342,11 +360,24 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
 
     // ---- HUD ---------------------------------------------------------------
 
+    /** Zeigt eine Meldung an, bis der Spieler sie antippt; merkt die letzten drei. */
     private fun comment(text: String) {
         binding.commentBar.text = text
         binding.commentBar.visibility = View.VISIBLE
-        binding.commentBar.removeCallbacks(hideComment)
-        binding.commentBar.postDelayed(hideComment, 3500L)
+        recentComments.addLast(text)
+        while (recentComments.size > RECENT_COMMENTS) recentComments.removeFirst()
+        speaker.speak(this, text)
+    }
+
+    private fun showRecentComments() {
+        val message =
+            if (recentComments.isEmpty()) getString(R.string.history_empty)
+            else recentComments.reversed().joinToString("\n\n") { "• $it" }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.history_title)
+            .setMessage(message)
+            .setPositiveButton(R.string.ok, null)
+            .show()
     }
 
     // ---- In-Game-Menü (getrennt vom App-Menü) --------------------------------
@@ -448,6 +479,8 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
                 save.historyFor(npc.id).add(DialogMessage(DialogMessage.ROLE_NPC, turn.sag))
                 GameEngine.apply(save, turn.effekte)
                 showDialogTurn(npc, turn)
+                val (pitch, rate) = Speaker.voiceFor(npc.id)
+                speaker.speak(this@GameActivity, turn.sag, pitch, rate)
                 refreshInventory()
                 autosave()
                 checkGoal()
@@ -492,6 +525,7 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
 
     private fun closeDialog() {
         dialogNpc = null
+        speaker.stop()
         binding.dialogOverlay.dialogRoot.visibility = View.GONE
     }
 
@@ -506,18 +540,21 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             }
             setLoading(false, "")
             result.onSuccess { res ->
-                comment(res.text)
                 if (res.erfolg) {
                     Sfx.play(this@GameActivity, Sfx.CRAFT)
                     crafting.close()
+                    comment(res.text)
                 }
                 crafting.reset()
+                // Fehlschlag: Urteil im Overlay zeigen — die Kommentarzeile
+                // läge hinter dem offenen Overlay und wäre unsichtbar.
+                if (!res.erfolg) crafting.showResult(res.text)
                 refreshInventory()
                 crafting.refreshInventory()
                 autosave()
                 checkGoal()
             }.onFailure {
-                comment(getString(R.string.craft_slipped))
+                crafting.showResult(getString(R.string.craft_slipped))
             }
         }
     }
@@ -545,11 +582,13 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             world.rooms.size,
             minuten,
         )
+        speaker.speak(this, getString(R.string.ending_title))
         AlertDialog.Builder(this)
             .setTitle(R.string.ending_title)
             .setMessage(message)
             .setCancelable(false)
-            .setPositiveButton(R.string.ending_back) { _, _ -> finish() }
+            .setPositiveButton(R.string.ending_continue, null)
+            .setNegativeButton(R.string.ending_back) { _, _ -> finish() }
             .show()
     }
 
@@ -570,5 +609,6 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
 
     companion object {
         const val EXTRA_SAVE_ID = "saveId"
+        private const val RECENT_COMMENTS = 3
     }
 }

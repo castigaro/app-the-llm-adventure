@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewConfiguration
 import com.castigaro.thellmadventure.game.Pathfinder
@@ -73,13 +74,27 @@ class IsoView @JvmOverloads constructor(
 
     private val walkSpeed = 3.2f // Kacheln pro Sekunde
 
-    // Touch-Unterscheidung Tipp vs. Schwenken
+    // Touch-Unterscheidung Tipp vs. Schwenken vs. Pinch-Zoom
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
     private var downY = 0f
     private var lastX = 0f
     private var lastY = 0f
     private var panning = false
+    private var multiTouch = false
+
+    private val scaleDetector = ScaleGestureDetector(
+        context,
+        object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                camera.scaleBy(detector.scaleFactor, detector.focusX, detector.focusY)
+                room?.let { camera.clampToRoom(it.w, it.h) }
+                listener?.onPanModeChanged(true)
+                postInvalidateOnAnimation()
+                return true
+            }
+        },
+    )
 
     /** Erlaubt der Activity, die Animationsschleife bei onPause anzuhalten. */
     var animate: Boolean = true
@@ -114,18 +129,32 @@ class IsoView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         camera.viewW = w.toFloat()
         camera.viewH = h.toFloat()
-        camera.zoom = resources.displayMetrics.density
+        // Basiszoom = Displaydichte; ein bereits gepinchter Faktor bleibt erhalten.
+        val relative = if (camera.baseZoom > 0f) camera.zoom / camera.baseZoom else 1f
+        camera.baseZoom = resources.displayMetrics.density
+        camera.zoom = camera.baseZoom * relative.coerceIn(Camera.MIN_SCALE, Camera.MAX_SCALE)
         room?.let { camera.clampToRoom(it.w, it.h) }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        scaleDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x; downY = event.y
                 lastX = event.x; lastY = event.y
                 panning = false
+                multiTouch = false
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                // Ab dem zweiten Finger zählt die Geste als Pinch — kein Tap,
+                // kein Ein-Finger-Schwenk mehr bis zum nächsten ACTION_DOWN.
+                multiTouch = true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (multiTouch || event.pointerCount > 1) {
+                    lastX = event.x; lastY = event.y
+                    return true
+                }
                 if (!panning && hypot(event.x - downX, event.y - downY) > touchSlop) {
                     panning = true
                     listener?.onPanModeChanged(true)
@@ -138,7 +167,7 @@ class IsoView @JvmOverloads constructor(
                 lastX = event.x; lastY = event.y
             }
             MotionEvent.ACTION_UP -> {
-                if (!panning) handleTap(event.x, event.y)
+                if (!panning && !multiTouch) handleTap(event.x, event.y)
             }
         }
         return true
@@ -153,19 +182,21 @@ class IsoView @JvmOverloads constructor(
         camera.recenter()
         listener?.onPanModeChanged(false)
 
-        // Figuren zuerst (stehen „vor" gleichrangigen Requisiten)
+        // Figuren zuerst (stehen „vor" gleichrangigen Requisiten). Bei mehreren
+        // Treffern gewinnt nicht das vorderste, sondern das dem Tipp-Punkt
+        // nächstgelegene — sonst schluckt eine vordere Requisite mit ihrer
+        // hohen Trefferbox Taps auf Dinge/Kacheln dahinter.
         val npc = r.npcIds.mapNotNull { npcProvider(it) }
-            .sortedWith { a, b -> -IsoMath.drawOrder(a.tx, a.ty, b.tx, b.ty) }
-            .firstOrNull { hitsTile(it.tx, it.ty, wx, wy) }
+            .filter { hitsTile(it.tx, it.ty, wx, wy) }
+            .minByOrNull { hitDistance(it.tx, it.ty, wx, wy) }
         if (npc != null) {
             approachNpc(r, npc)
             return
         }
 
-        // Requisiten, von vorn nach hinten
         val prop = r.props
-            .sortedWith { a, b -> -IsoMath.drawOrder(a.tx, a.ty, b.tx, b.ty) }
-            .firstOrNull { hitsTile(it.tx, it.ty, wx, wy) }
+            .filter { hitsTile(it.tx, it.ty, wx, wy) }
+            .minByOrNull { hitDistance(it.tx, it.ty, wx, wy) }
         if (prop != null) {
             approachProp(r, prop)
             return
@@ -186,7 +217,14 @@ class IsoView @JvmOverloads constructor(
         val cx = IsoMath.tileCenterX(tx, ty)
         val cy = IsoMath.tileCenterY(tx, ty)
         return abs(wx - cx) <= IsoMath.TILE_W * 0.35f &&
-            wy >= cy - IsoMath.TILE_H * 1.8f && wy <= cy + IsoMath.TILE_H * 0.45f
+            wy >= cy - IsoMath.TILE_H * HIT_HEIGHT && wy <= cy + IsoMath.TILE_H * 0.45f
+    }
+
+    /** Abstand des Tipp-Punkts zur sichtbaren Sprite-Mitte einer Entität. */
+    private fun hitDistance(tx: Int, ty: Int, wx: Float, wy: Float): Float {
+        val cx = IsoMath.tileCenterX(tx, ty)
+        val cy = IsoMath.tileCenterY(tx, ty) - IsoMath.TILE_H * 0.5f
+        return hypot(wx - cx, wy - cy)
     }
 
     private fun approachNpc(r: Room, npc: Npc) {
@@ -230,8 +268,16 @@ class IsoView @JvmOverloads constructor(
         }
         val p = Pathfinder.findPath(r.w, r.h, r::walkable, playerTile(), tile)
         if (p.isEmpty()) {
+            // Blockierte/unerreichbare Kachel: so nah wie möglich heranlaufen,
+            // statt sofort „Da kommst du nicht hin" zu melden.
             pendingDoor = null
-            listener?.onBlockedTarget()
+            val adj = Pathfinder.findPathAdjacent(r.w, r.h, r::walkable, playerTile(), tile)
+            if (adj == null) {
+                listener?.onBlockedTarget()
+                return
+            }
+            if (adj.isEmpty()) return // steht bereits direkt daneben
+            walkPath(r, adj, immediate = false)
             return
         }
         walkPath(r, p, immediate = false)
@@ -294,9 +340,11 @@ class IsoView @JvmOverloads constructor(
         canvas.scale(camera.zoom, camera.zoom)
         canvas.translate(-camera.x, -camera.y)
 
+        // Türnamen bleiben unabhängig vom Pinch-Zoom gleich groß am Bildschirm.
+        val labelScale = if (camera.zoom > 0f && camera.baseZoom > 0f) camera.baseZoom / camera.zoom else 1f
         RoomRenderer.drawFloor(canvas, r)
-        RoomRenderer.drawDoorMarkers(canvas, r, timeMs)
-        RoomRenderer.drawWalls(canvas, r, timeMs)
+        RoomRenderer.drawDoorMarkers(canvas, r, timeMs, labelScale)
+        RoomRenderer.drawWalls(canvas, r, timeMs, labelScale)
 
         // Entities in Painter-Reihenfolge (Requisiten + Figuren + Spieler)
         val walking = path.isNotEmpty()
@@ -326,6 +374,11 @@ class IsoView @JvmOverloads constructor(
         canvas.restore()
 
         if (animate) postInvalidateOnAnimation()
+    }
+
+    private companion object {
+        /** Vertikale Ausdehnung der Trefferbox in Kachelhöhen (Sprites sind hoch). */
+        const val HIT_HEIGHT = 1.15f
     }
 
     private fun stepMovement(dt: Float) {

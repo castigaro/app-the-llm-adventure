@@ -87,6 +87,8 @@ val SLOT_COLORS = intArrayOf(
 /** Grundregeln des Rahmens — was maximal möglich ist. */
 object Limits {
     const val MAX_RAEUME = 24
+    /** Das Zielobjekt darf frühestens ab so vielen Räumen versteckt werden. */
+    const val ZIEL_MIN_RAEUME = 6
     const val MIN_RAUM_W = 6
     const val MAX_RAUM_W = 16
     const val MIN_RAUM_H = 4

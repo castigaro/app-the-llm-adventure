@@ -29,10 +29,14 @@
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
+        <!-- Kein Neustart beim Drehen: Während der Story-Synthese läuft ein
+             teurer KI-Aufruf im lifecycleScope, der eine Activity-Neuerstellung
+             nicht überleben würde (Fragen + Antwort wären verloren). -->
         <activity
             android:name=".NewGameActivity"
             android:exported="false"
-            android:parentActivityName=".MainActivity" />
+            android:parentActivityName=".MainActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
             android:name=".SetupActivity"

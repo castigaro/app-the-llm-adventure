@@ -17,8 +17,11 @@ class Camera {
     var y = 0f
         private set
 
-    /** Zoomfaktor Welt→Bildschirm (wird von der View auf die Displaydichte gesetzt). */
+    /** Effektiver Zoomfaktor Welt→Bildschirm (Basiszoom × Nutzer-Pinch). */
     var zoom = 1f
+
+    /** Basiszoom = Displaydichte; der Pinch-Faktor bewegt sich relativ dazu. */
+    var baseZoom = 0f
 
     var viewW = 0f
     var viewH = 0f
@@ -55,6 +58,23 @@ class Camera {
     }
 
     /**
+     * Pinch-Zoom um einen Bildschirm-Fokuspunkt: Der Weltpunkt unter den
+     * Fingern bleibt stehen. Geklemmt auf [MIN_SCALE]..[MAX_SCALE] relativ
+     * zum Basiszoom.
+     */
+    fun scaleBy(factor: Float, focusSx: Float, focusSy: Float) {
+        if (baseZoom <= 0f) return
+        val newZoom = (zoom * factor).coerceIn(baseZoom * MIN_SCALE, baseZoom * MAX_SCALE)
+        if (newZoom == zoom) return
+        val wx = worldXFromScreen(focusSx)
+        val wy = worldYFromScreen(focusSy)
+        zoom = newZoom
+        x = wx - (focusSx - viewW / 2f) / zoom
+        y = wy - (focusSy - viewH / 2f) / zoom
+        manualPan = true
+    }
+
+    /**
      * Klemmt die Kamera an die Raumgrenzen: Räume kleiner als der Viewport
      * werden zentriert, größere scrollen ohne über den Rand hinauszulaufen.
      */
@@ -79,4 +99,9 @@ class Camera {
     fun worldXFromScreen(sx: Float): Float = (sx - viewW / 2f) / zoom + x
 
     fun worldYFromScreen(sy: Float): Float = (sy - viewH / 2f) / zoom + y
+
+    companion object {
+        const val MIN_SCALE = 0.6f
+        const val MAX_SCALE = 2.5f
+    }
 }

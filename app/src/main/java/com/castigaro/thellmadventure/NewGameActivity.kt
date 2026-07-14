@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.castigaro.thellmadventure.api.LlmClient
 import com.castigaro.thellmadventure.api.StorySynthApi
+import com.castigaro.thellmadventure.audio.Speaker
 import com.castigaro.thellmadventure.data.SaveStore
 import com.castigaro.thellmadventure.data.StoryTemplates
 import com.castigaro.thellmadventure.databinding.ActivityNewGameBinding
@@ -24,6 +25,7 @@ class NewGameActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNewGameBinding
     private lateinit var baseStory: Frame.BaseStory
+    private lateinit var speaker: Speaker
     private val tags = mutableListOf<String>()
     private var questionIndex = 0
 
@@ -33,8 +35,14 @@ class NewGameActivity : AppCompatActivity() {
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        speaker = Speaker(this)
 
         showStoryPicker()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        speaker.shutdown()
     }
 
     // ---- Schritt 1: Basis-Story wählen ---------------------------------------
@@ -93,6 +101,7 @@ class NewGameActivity : AppCompatActivity() {
         }
         val question = baseStory.intake[questionIndex]
         binding.questionText.text = question.text
+        speaker.speak(this, question.text)
         binding.optionContainer.removeAllViews()
         question.options.forEach { option ->
             addOption(option.label) {
@@ -123,6 +132,7 @@ class NewGameActivity : AppCompatActivity() {
 
     private fun synthesize() {
         binding.questionText.text = getString(R.string.newgame_weaving)
+        speaker.speak(this, getString(R.string.newgame_weaving))
         binding.optionContainer.removeAllViews()
         setLoading(true, getString(R.string.newgame_weaving_flavor))
 

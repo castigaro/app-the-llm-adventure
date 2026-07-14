@@ -59,6 +59,16 @@ class CraftingController(
         renderSlots()
         binding.craftResult.spec = null
         binding.craftCombine.isEnabled = false
+        binding.craftFeedback.visibility = View.GONE
+    }
+
+    /**
+     * Zeigt das Urteil der letzten Kombination im Overlay an — die
+     * Kommentarzeile läge hinter dem vollflächigen Overlay und wäre unsichtbar.
+     */
+    fun showResult(text: String) {
+        binding.craftFeedback.text = text
+        binding.craftFeedback.visibility = View.VISIBLE
     }
 
     private fun onSlotTap(index: Int) {

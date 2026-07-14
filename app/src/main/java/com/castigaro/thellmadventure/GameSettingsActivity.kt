@@ -22,10 +22,12 @@ class GameSettingsActivity : AppCompatActivity() {
 
         binding.switchMusic.isChecked = AppSettings.isMusicEnabled(this)
         binding.switchSfx.isChecked = AppSettings.isSfxEnabled(this)
+        binding.switchTts.isChecked = AppSettings.isTtsEnabled(this)
         binding.switchFullscreen.isChecked = AppSettings.isFullscreen(this)
 
         binding.switchMusic.setOnCheckedChangeListener { _, v -> AppSettings.setMusicEnabled(this, v) }
         binding.switchSfx.setOnCheckedChangeListener { _, v -> AppSettings.setSfxEnabled(this, v) }
+        binding.switchTts.setOnCheckedChangeListener { _, v -> AppSettings.setTtsEnabled(this, v) }
         binding.switchFullscreen.setOnCheckedChangeListener { _, v -> AppSettings.setFullscreen(this, v) }
 
         binding.sliderMusicVolume.value = sliderValue(AppSettings.musicVolume(this))

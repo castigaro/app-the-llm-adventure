@@ -18,6 +18,7 @@ class MusicDirector(private val context: Context) {
 
     private var track: AudioTrack? = null
     private var currentId: String? = null
+    private var ducked = false
 
     /** LRU-Cache gerenderter Loops (Spec-Id → PCM). */
     private val cache = object : LinkedHashMap<String, ShortArray>(16, 0.75f, true) {
@@ -55,8 +56,18 @@ class MusicDirector(private val context: Context) {
     }
 
     fun applyVolume() {
-        val gain = AppSettings.musicVolume(context)
+        val gain = AppSettings.musicVolume(context) * (if (ducked) DUCK_FACTOR else 1f)
         runCatching { track?.setVolume(gain) }
+    }
+
+    /** Musik leiser drehen, solange die Sprachausgabe spricht. */
+    fun duck(active: Boolean) {
+        ducked = active
+        applyVolume()
+    }
+
+    private companion object {
+        const val DUCK_FACTOR = 0.3f
     }
 
     private fun startLoop(pcm: ShortArray) {

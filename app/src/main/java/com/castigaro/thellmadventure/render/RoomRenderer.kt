@@ -53,7 +53,7 @@ object RoomRenderer {
     }
 
     /** Nord- und Westwand mit Türöffnungen. */
-    fun drawWalls(canvas: Canvas, room: Room, timeMs: Long) {
+    fun drawWalls(canvas: Canvas, room: Room, timeMs: Long, labelScale: Float = 1f) {
         val pal = room.palette
         for (tx in 0 until room.w) {
             val door = room.doors.firstOrNull { it.wall == Wall.N && it.pos == tx }
@@ -61,7 +61,7 @@ object RoomRenderer {
                 canvas,
                 IsoMath.worldX(tx.toFloat(), 0f), IsoMath.worldY(tx.toFloat(), 0f),
                 IsoMath.worldX(tx + 1f, 0f), IsoMath.worldY(tx + 1f, 0f),
-                pal.wallLight, door, timeMs,
+                pal.wallLight, door, timeMs, labelScale,
             )
         }
         for (ty in 0 until room.h) {
@@ -70,7 +70,7 @@ object RoomRenderer {
                 canvas,
                 IsoMath.worldX(0f, ty.toFloat()), IsoMath.worldY(0f, ty.toFloat()),
                 IsoMath.worldX(0f, ty + 1f), IsoMath.worldY(0f, ty + 1f),
-                pal.wallDark, door, timeMs,
+                pal.wallDark, door, timeMs, labelScale,
             )
         }
     }
@@ -78,7 +78,7 @@ object RoomRenderer {
     private fun wallSegment(
         canvas: Canvas,
         ax: Float, ay: Float, bx: Float, by: Float,
-        color: Int, door: Door?, timeMs: Long,
+        color: Int, door: Door?, timeMs: Long, labelScale: Float,
     ) {
         val quad = Path().apply {
             moveTo(ax, ay - WALL_H)
@@ -103,7 +103,7 @@ object RoomRenderer {
                 close()
             }
             canvas.drawPath(recess, PaintKit.solid(PaintKit.shade(color, 0.35f)))
-            drawDoorDeco(canvas, door, mx, my - WALL_H * 0.5f, timeMs)
+            drawDoorDeco(canvas, door, mx, my - WALL_H * 0.5f, timeMs, labelScale)
         }
     }
 
@@ -111,7 +111,7 @@ object RoomRenderer {
      * Markierungen für Süd-/Ost-Türen (offene Bodenkanten ohne Wand) und
      * Beschriftung/Status aller Türen.
      */
-    fun drawDoorMarkers(canvas: Canvas, room: Room, timeMs: Long) {
+    fun drawDoorMarkers(canvas: Canvas, room: Room, timeMs: Long, labelScale: Float = 1f) {
         room.doors.forEach { door ->
             val (tx, ty) = door.tile(room.w, room.h)
             val cx = IsoMath.tileCenterX(tx, ty)
@@ -122,15 +122,19 @@ object RoomRenderer {
                 PaintKit.line(PaintKit.withAlpha(room.palette.accent, 200), TH * 0.07f),
             )
             if (door.wall == Wall.S || door.wall == Wall.O) {
-                drawDoorDeco(canvas, door, cx, cy - TH * 0.9f, timeMs)
+                drawDoorDeco(canvas, door, cx, cy - TH * 0.9f, timeMs, labelScale)
             }
         }
     }
 
-    /** „?" für Unentdecktes, Schloss für Verriegeltes, Name darüber. */
-    private fun drawDoorDeco(canvas: Canvas, door: Door, cx: Float, cy: Float, timeMs: Long) {
-        val label = PaintKit.text
-        label.textSize = TH * 0.30f
+    /**
+     * „?" für Unentdecktes, Schloss für Verriegeltes, Name darüber. Der Name
+     * wird über [labelScale] (Basiszoom/Zoom) auf konstante Bildschirmgröße
+     * gebracht — er wächst beim Pinch-Zoom nicht mit und bleibt dezent.
+     */
+    private fun drawDoorDeco(
+        canvas: Canvas, door: Door, cx: Float, cy: Float, timeMs: Long, labelScale: Float,
+    ) {
         if (door.targetRoomId == null) {
             val alpha = (140 + 100 * sin(timeMs / 400.0)).toInt().coerceIn(40, 240)
             val q = PaintKit.text
@@ -142,8 +146,12 @@ object RoomRenderer {
         if (door.locked) {
             canvas.drawCircle(cx + TW * 0.18f, cy, TH * 0.09f, PaintKit.solid(PaintKit.GOLD))
         }
+        val label = PaintKit.text
+        label.textSize = TH * 0.16f * labelScale
         label.color = PaintKit.withAlpha(PaintKit.WEISS, 220)
+        label.setShadowLayer(label.textSize * 0.18f, 0f, 0f, 0xCC000000.toInt())
         canvas.drawText(door.label, cx, cy - TH * 0.45f, label)
+        label.clearShadowLayer()
         label.color = PaintKit.WEISS
     }
 

@@ -97,6 +97,22 @@ object PaintKit {
         canvas.drawPath(diamond(cx, topY, halfW, halfH), solid(shade(color, 1.12f)))
     }
 
+    /**
+     * Dunkle Kantenlinien um einen Iso-Quader — dieselbe Geometrie wie
+     * [cube]. Hebt Objekte sichtbar vom Boden und voneinander ab.
+     */
+    fun cubeEdges(
+        canvas: Canvas, cx: Float, baseY: Float,
+        halfW: Float, halfH: Float, height: Float, color: Int, width: Float,
+    ) {
+        val topY = baseY - height
+        val edge = line(shade(color, 0.45f), width)
+        canvas.drawPath(diamond(cx, topY, halfW, halfH), edge)
+        canvas.drawLine(cx - halfW, topY, cx - halfW, baseY, edge)
+        canvas.drawLine(cx + halfW, topY, cx + halfW, baseY, edge)
+        canvas.drawLine(cx, topY + halfH, cx, baseY + halfH, edge)
+    }
+
     /** Stehender Zylinder (Fass, Kessel, Brunnen). */
     fun cylinder(
         canvas: Canvas, cx: Float, baseY: Float,

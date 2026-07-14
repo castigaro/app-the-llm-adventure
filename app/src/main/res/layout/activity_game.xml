@@ -116,6 +116,15 @@
             android:orientation="horizontal"
             android:paddingHorizontal="4dp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonHistory"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:minWidth="0dp"
+            android:text="@string/history_button"
+            android:textColor="#FFF5F1E6" />
+
     </LinearLayout>
 
     <include

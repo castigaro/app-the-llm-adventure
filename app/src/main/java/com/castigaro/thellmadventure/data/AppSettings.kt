@@ -34,6 +34,14 @@ object AppSettings {
         prefs(context).edit().putBoolean("sfxEnabled", enabled).apply()
     }
 
+    /** Vorlesen (TTS) von Dialogen, Kommentaren und Spielstart-Texten. */
+    fun isTtsEnabled(context: Context): Boolean =
+        prefs(context).getBoolean("ttsEnabled", true)
+
+    fun setTtsEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean("ttsEnabled", enabled).apply()
+    }
+
     /** Standard für den Vollbildmodus des Spielbildschirms. */
     fun isFullscreen(context: Context): Boolean =
         prefs(context).getBoolean("fullscreen", false)

@@ -48,13 +48,15 @@ object RoomGenApi {
             )
             appendLine("Erfinde den Raum dahinter (raum). Mindestens eine weitere Tür darf ins Ungewisse führen.")
             appendLine("fakt: EIN knapper Satz, was dieser Raum zur Geschichte beiträgt.")
-            if (goalUnplaced) {
+            if (goalUnplaced && world.rooms.size + 1 >= Limits.ZIEL_MIN_RAEUME) {
                 appendLine(
                     "Das geheime Zielobjekt ${goalItem!!.id} (${goalItem.name}) ist noch nicht versteckt. " +
                         if (forcePlace) "Verstecke es JETZT hier: setze zielHier auf true."
                         else "Setze zielHier auf true, wenn es hier gut versteckt wäre (nicht zu früh)."
                 )
             } else {
+                // Auch solange die Welt zu klein ist: Das Ziel bleibt verborgen,
+                // damit das Abenteuer nicht nach zwei Räumen endet.
                 appendLine("zielHier: immer false.")
             }
             append("musikNeu: optional eine kurze, sanfte Melodie für diesen Raum (oder null).")
@@ -93,9 +95,13 @@ object RoomGenApi {
         world.addRoom(room)
         door.targetRoomId = room.id
 
-        // Zielobjekt verstecken, wenn gewünscht oder erzwungen
+        // Zielobjekt verstecken, wenn gewünscht oder erzwungen. Harter Guard
+        // gegen ein zu frühes Spielende: Vor ZIEL_MIN_RAEUME Räumen wird ein
+        // zielHier der KI ignoriert (die Prompt-Bitte allein reicht nicht).
+        val zielHierErlaubt =
+            json.optBoolean("zielHier", false) && world.rooms.size >= Limits.ZIEL_MIN_RAEUME
         if (goalItem != null && goalItem.holder == StorySynthApi.HOLDER_HIDDEN &&
-            (json.optBoolean("zielHier", false) || forcePlace)
+            (zielHierErlaubt || forcePlace)
         ) {
             placeGoalItem(world, room, goalItem)
         }

@@ -82,6 +82,19 @@
             android:textColor="#B0F5F1E6"
             android:textAppearance="?attr/textAppearanceCaption" />
 
+        <!-- Ergebnis-/Fehlertext der letzten Kombination (z. B. „unmöglich") -->
+        <TextView
+            android:id="@+id/craftFeedback"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:maxWidth="320dp"
+            android:textColor="#FFE0A73C"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:visibility="gone" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/craftInventory"
             android:layout_width="match_parent"
