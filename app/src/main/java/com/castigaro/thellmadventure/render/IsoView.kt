@@ -340,11 +340,9 @@ class IsoView @JvmOverloads constructor(
         canvas.scale(camera.zoom, camera.zoom)
         canvas.translate(-camera.x, -camera.y)
 
-        // Türnamen bleiben unabhängig vom Pinch-Zoom gleich groß am Bildschirm.
-        val labelScale = if (camera.zoom > 0f && camera.baseZoom > 0f) camera.baseZoom / camera.zoom else 1f
         RoomRenderer.drawFloor(canvas, r)
-        RoomRenderer.drawDoorMarkers(canvas, r, timeMs, labelScale)
-        RoomRenderer.drawWalls(canvas, r, timeMs, labelScale)
+        RoomRenderer.drawDoorMarkers(canvas, r)
+        RoomRenderer.drawWalls(canvas, r, timeMs)
 
         // Entities in Painter-Reihenfolge (Requisiten + Figuren + Spieler)
         val walking = path.isNotEmpty()
@@ -370,6 +368,11 @@ class IsoView @JvmOverloads constructor(
         })
         entities.sortBy { it.first }
         entities.forEach { it.second() }
+
+        // Türnamen zuletzt: nichts darf sie verdecken. Über labelScale bleiben
+        // sie unabhängig vom Pinch-Zoom gleich groß am Bildschirm.
+        val labelScale = if (camera.zoom > 0f && camera.baseZoom > 0f) camera.baseZoom / camera.zoom else 1f
+        RoomRenderer.drawDoorLabels(canvas, r, timeMs, labelScale)
 
         canvas.restore()
 

@@ -67,9 +67,17 @@ object DialogApi {
         return parse(LlmClient.extractJson(raw), save, npc, erlaubt.toSet(), darfErschaffen)
     }
 
+    /**
+     * Baut die Gesprächs-Turns. Wichtig: Die Folge muss mit einer USER-
+     * Nachricht beginnen UND enden — die Historie startet mit der Eröffnung
+     * der Figur (assistant), und beim Wiederansprechen gäbe es sonst auch am
+     * Ende nur assistant. Beides lehnen neuere Modelle mit HTTP 400 ab
+     * („does not support assistant prefill").
+     */
     private fun buildTurns(save: GameSave, npc: Npc, gewaehlteOption: String?): List<LlmClient.Turn> {
         val history = save.historyFor(npc.id)
         val turns = mutableListOf<LlmClient.Turn>()
+        turns.add(LlmClient.Turn(LlmClient.Turn.ROLE_USER, "(Der Spieler tritt heran.)"))
         history.forEach { msg ->
             val role = if (msg.role == DialogMessage.ROLE_PLAYER) LlmClient.Turn.ROLE_USER
             else LlmClient.Turn.ROLE_ASSISTANT
@@ -77,8 +85,13 @@ object DialogApi {
         }
         if (gewaehlteOption != null) {
             turns.add(LlmClient.Turn(LlmClient.Turn.ROLE_USER, gewaehlteOption))
-        } else if (turns.isEmpty()) {
-            turns.add(LlmClient.Turn(LlmClient.Turn.ROLE_USER, "(Der Spieler tritt heran.)"))
+        } else if (history.isNotEmpty()) {
+            turns.add(
+                LlmClient.Turn(
+                    LlmClient.Turn.ROLE_USER,
+                    "(Der Spieler kommt erneut auf dich zu und setzt das Gespräch fort.)",
+                )
+            )
         }
         return turns
     }

@@ -8,10 +8,20 @@
     android:focusable="true"
     android:visibility="gone">
 
-    <LinearLayout
+    <!-- Scrollbar, damit Ergebnistexte die Buttons nicht aus dem Bild schieben;
+         clickable, damit Tipps im Panel nicht das Overlay schließen. -->
+    <ScrollView
+        android:id="@+id/craftPanel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:fillViewport="false">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:background="#EE141A2E"
         android:orientation="vertical"
         android:padding="20dp">
@@ -128,5 +138,7 @@
         </LinearLayout>
 
     </LinearLayout>
+
+    </ScrollView>
 
 </FrameLayout>

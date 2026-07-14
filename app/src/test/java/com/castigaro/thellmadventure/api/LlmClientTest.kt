@@ -66,6 +66,22 @@ class LlmClientTest {
     }.toString()
 
     @Test
+    fun `Leere Antwort wird einmal automatisch wiederholt`() {
+        useAnthropic()
+        // Erste Antwort ohne Text-Block (z. B. nur Denk-Blöcke), zweite normal.
+        server.enqueue(MockResponse().setBody(JSONObject().apply {
+            put("stop_reason", "end_turn")
+            put("content", org.json.JSONArray())
+        }.toString()))
+        server.enqueue(MockResponse().setBody(anthropicBody("da bin ich")))
+
+        val antwort = LlmClient.chat(context, "sys", listOf(LlmClient.Turn("user", "hi")))
+
+        assertEquals("da bin ich", antwort)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
     fun `Anthropic-Anfrage traegt Key Version und Schema`() {
         useAnthropic()
         server.enqueue(MockResponse().setBody(anthropicBody("hallo")))

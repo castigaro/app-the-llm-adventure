@@ -1,6 +1,7 @@
 package com.castigaro.thellmadventure.api
 
 import android.content.Context
+import android.util.Log
 import com.castigaro.common.llm.ModelPricing
 import com.castigaro.common.llm.ProviderSettings
 import okhttp3.MediaType.Companion.toMediaType
@@ -63,12 +64,18 @@ object LlmClient {
         val schemaKey = "${config.provider}/${config.model}"
         val useSchema = schema != null && schemaKey !in noStructuredOutputs
 
+        val activeSchema = if (useSchema) schema else null
         return try {
-            request(context, config, systemPrompt, turns, maxTokens, if (useSchema) schema else null)
+            request(context, config, systemPrompt, turns, maxTokens, activeSchema)
         } catch (e: SchemaRejectedException) {
             // Modell kann kein Structured Output → merken und ohne Schema erneut.
             noStructuredOutputs.add(schemaKey)
             request(context, config, systemPrompt, turns, maxTokens, schema = null)
+        } catch (e: ApiException) {
+            if (!e.message.orEmpty().startsWith("Leere Antwort")) throw e
+            // Leere Antworten sind meist transient — einmal automatisch wiederholen.
+            Log.w(TAG, "Leere Antwort vom Modell — zweiter Versuch (${e.message})")
+            request(context, config, systemPrompt, turns, maxTokens, activeSchema)
         }
     }
 
@@ -149,7 +156,7 @@ object LlmClient {
                     return block.getString("text").trim()
                 }
             }
-            throw ApiException("Leere Antwort vom Modell.")
+            throw ApiException("Leere Antwort vom Modell (stop_reason=${json.optString("stop_reason", "?")}).")
         }
     }
 
@@ -229,13 +236,18 @@ object LlmClient {
         val detail = runCatching {
             JSONObject(responseText).getJSONObject("error").getString("message")
         }.getOrNull()
-        return when {
+        val message = when {
             detail != null -> "API-Fehler ($code): $detail"
             code == 401 -> "API-Key ungültig (401)."
             code == 429 -> "Rate-Limit erreicht (429) — bitte kurz warten."
             else -> "API-Fehler ($code)."
         }
+        // Fürs Debugging via Logcat — die App zeigt Fehler nur als Toast/Kommentar.
+        Log.w(TAG, message)
+        return message
     }
+
+    private const val TAG = "LlmAdventure"
 
     /** Zieht das JSON-Objekt aus der Modellantwort (toleriert ```-Zäune und Fließtext). */
     fun extractJson(text: String): JSONObject {

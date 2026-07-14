@@ -35,6 +35,8 @@ class CraftingController(
             onCombine(slots.filterNotNull().map { it.id })
         }
         binding.craftCancel.setOnClickListener { close() }
+        // Tipp neben das Panel schließt die Werkbank.
+        binding.craftRoot.setOnClickListener { close() }
     }
 
     fun open() {

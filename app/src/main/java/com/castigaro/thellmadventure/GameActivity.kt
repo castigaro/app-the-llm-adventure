@@ -506,6 +506,10 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             ).apply {
                 text = option
                 isAllCaps = false
+                // Auf dem dunklen Overlay wäre das Theme-Lila kaum lesbar.
+                setTextColor(0xFFF5F1E6.toInt())
+                strokeColor = android.content.res.ColorStateList.valueOf(0x66F5F1E6)
+                rippleColor = android.content.res.ColorStateList.valueOf(0x33FFFFFF)
                 layoutParams = android.widget.LinearLayout.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT,

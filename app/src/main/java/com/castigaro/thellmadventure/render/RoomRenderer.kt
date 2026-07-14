@@ -53,7 +53,7 @@ object RoomRenderer {
     }
 
     /** Nord- und Westwand mit Türöffnungen. */
-    fun drawWalls(canvas: Canvas, room: Room, timeMs: Long, labelScale: Float = 1f) {
+    fun drawWalls(canvas: Canvas, room: Room, timeMs: Long) {
         val pal = room.palette
         for (tx in 0 until room.w) {
             val door = room.doors.firstOrNull { it.wall == Wall.N && it.pos == tx }
@@ -61,7 +61,7 @@ object RoomRenderer {
                 canvas,
                 IsoMath.worldX(tx.toFloat(), 0f), IsoMath.worldY(tx.toFloat(), 0f),
                 IsoMath.worldX(tx + 1f, 0f), IsoMath.worldY(tx + 1f, 0f),
-                pal.wallLight, door, timeMs, labelScale,
+                pal.wallLight, door,
             )
         }
         for (ty in 0 until room.h) {
@@ -70,7 +70,7 @@ object RoomRenderer {
                 canvas,
                 IsoMath.worldX(0f, ty.toFloat()), IsoMath.worldY(0f, ty.toFloat()),
                 IsoMath.worldX(0f, ty + 1f), IsoMath.worldY(0f, ty + 1f),
-                pal.wallDark, door, timeMs, labelScale,
+                pal.wallDark, door,
             )
         }
     }
@@ -78,7 +78,7 @@ object RoomRenderer {
     private fun wallSegment(
         canvas: Canvas,
         ax: Float, ay: Float, bx: Float, by: Float,
-        color: Int, door: Door?, timeMs: Long, labelScale: Float,
+        color: Int, door: Door?,
     ) {
         val quad = Path().apply {
             moveTo(ax, ay - WALL_H)
@@ -103,26 +103,52 @@ object RoomRenderer {
                 close()
             }
             canvas.drawPath(recess, PaintKit.solid(PaintKit.shade(color, 0.35f)))
-            drawDoorDeco(canvas, door, mx, my - WALL_H * 0.5f, timeMs, labelScale)
         }
     }
 
-    /**
-     * Markierungen für Süd-/Ost-Türen (offene Bodenkanten ohne Wand) und
-     * Beschriftung/Status aller Türen.
-     */
-    fun drawDoorMarkers(canvas: Canvas, room: Room, timeMs: Long, labelScale: Float = 1f) {
+    /** Markierungen für alle Türkacheln („Türmatte" in Akzentfarbe). */
+    fun drawDoorMarkers(canvas: Canvas, room: Room) {
         room.doors.forEach { door ->
             val (tx, ty) = door.tile(room.w, room.h)
             val cx = IsoMath.tileCenterX(tx, ty)
             val cy = IsoMath.tileCenterY(tx, ty)
-            // „Türmatte" in Akzentfarbe auf der Türkachel
             canvas.drawPath(
                 PaintKit.diamond(cx, cy, TW * 0.42f, TH * 0.42f),
                 PaintKit.line(PaintKit.withAlpha(room.palette.accent, 200), TH * 0.07f),
             )
-            if (door.wall == Wall.S || door.wall == Wall.O) {
-                drawDoorDeco(canvas, door, cx, cy - TH * 0.9f, timeMs, labelScale)
+        }
+    }
+
+    /**
+     * Beschriftung/Status aller Türen — wird NACH den Entities gezeichnet,
+     * damit Requisiten und Figuren die Namen nicht verdecken.
+     */
+    fun drawDoorLabels(canvas: Canvas, room: Room, timeMs: Long, labelScale: Float = 1f) {
+        room.doors.forEach { door ->
+            when (door.wall) {
+                Wall.N, Wall.W -> {
+                    // Position = Mitte des Wandsegments (wie die Türnische)
+                    val (ax, ay, bx, by) = if (door.wall == Wall.N) {
+                        floatArrayOf(
+                            IsoMath.worldX(door.pos.toFloat(), 0f), IsoMath.worldY(door.pos.toFloat(), 0f),
+                            IsoMath.worldX(door.pos + 1f, 0f), IsoMath.worldY(door.pos + 1f, 0f),
+                        )
+                    } else {
+                        floatArrayOf(
+                            IsoMath.worldX(0f, door.pos.toFloat()), IsoMath.worldY(0f, door.pos.toFloat()),
+                            IsoMath.worldX(0f, door.pos + 1f), IsoMath.worldY(0f, door.pos + 1f),
+                        )
+                    }
+                    drawDoorDeco(canvas, door, (ax + bx) / 2f, (ay + by) / 2f - WALL_H * 0.5f, timeMs, labelScale)
+                }
+                Wall.S, Wall.O -> {
+                    val (tx, ty) = door.tile(room.w, room.h)
+                    drawDoorDeco(
+                        canvas, door,
+                        IsoMath.tileCenterX(tx, ty), IsoMath.tileCenterY(tx, ty) - TH * 0.9f,
+                        timeMs, labelScale,
+                    )
+                }
             }
         }
     }

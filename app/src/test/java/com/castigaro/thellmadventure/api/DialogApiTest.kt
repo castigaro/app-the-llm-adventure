@@ -100,6 +100,30 @@ class DialogApiTest {
     }
 
     @Test
+    fun `Gespraech beginnt und endet immer mit einer User-Nachricht`() {
+        val (save, npc) = saveWithNpc("Wächter")
+        // Frühere Unterhaltung: Eröffnung der Figur (assistant) steht am Anfang
+        // UND am Ende der Historie — neuere Modelle lehnen das als Prefill ab.
+        save.historyFor(npc.id).add(
+            com.castigaro.thellmadventure.data.DialogMessage(
+                com.castigaro.thellmadventure.data.DialogMessage.ROLE_NPC, "Geh weiter."
+            )
+        )
+        server.enqueue(anthropic(JSONObject().apply {
+            put("sag", "Du schon wieder?")
+            put("optionen", JSONArray().put("Ja."))
+            put("effekte", JSONArray())
+        }.toString()))
+
+        DialogApi.turn(context, save, npc, gewaehlteOption = null)
+
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        val messages = body.getJSONArray("messages")
+        assertEquals("user", messages.getJSONObject(0).getString("role"))
+        assertEquals("user", messages.getJSONObject(messages.length() - 1).getString("role"))
+    }
+
+    @Test
     fun `Rolle ohne Geber-Eigenschaft darf nichts erschaffen`() {
         val (save, npc) = saveWithNpc("Gespenst") // keine Geber-Rolle
         server.enqueue(anthropic(JSONObject().apply {
