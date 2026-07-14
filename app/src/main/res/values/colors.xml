@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tiefes Indigo mit Gold-Akzent: Palette des wachsenden Abenteuers. -->
+    <color name="primary">#4A3E78</color>
+    <color name="primary_dark">#322A54</color>
+    <color name="secondary">#E0A73C</color>
+    <color name="white">#FFFFFF</color>
+    <color name="ic_launcher_background">#322A54</color>
+    <!-- Feste Toolbar-Farbe (im Dark-Mode überschrieben). -->
+    <color name="toolbar_bg">#4A3E78</color>
+</resources>

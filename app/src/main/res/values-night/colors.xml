@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Helleres Indigo für Akzente (Buttons, Icons, Links), damit sie auf
+         dunklem Untergrund gut lesbar sind. -->
+    <color name="primary">#8A7BC8</color>
+    <color name="primary_dark">#6A5CA8</color>
+    <color name="secondary">#F0C169</color>
+    <!-- Toolbar bleibt dunkel, damit der weiße Titel darauf gut lesbar ist. -->
+    <color name="toolbar_bg">#251F40</color>
+</resources>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <com.castigaro.thellmadventure.render.IsoView
+        android:id="@+id/isoView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Raumname oben links -->
+    <TextView
+        android:id="@+id/roomLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="#66000000"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:textColor="#FFF5F1E6"
+        android:textAppearance="?attr/textAppearanceCaption" />
+
+    <!-- Menü-Button oben rechts (In-Game-Menü, getrennt vom App-Menü) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonMenu"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="4dp"
+        android:minWidth="0dp"
+        android:text="@string/game_menu"
+        android:textColor="#FFF5F1E6"
+        android:background="#66000000" />
+
+    <!-- „Zentrieren"-Chip: erscheint nur im Kamera-Schwenkmodus -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonRecenter"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_margin="8dp"
+        android:minWidth="0dp"
+        android:text="@string/game_recenter"
+        android:textColor="#FFF5F1E6"
+        android:background="#66000000"
+        android:visibility="gone" />
+
+    <!-- Kommentar-/Beschreibungszeile -->
+    <TextView
+        android:id="@+id/commentBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="64dp"
+        android:background="#88000000"
+        android:padding="10dp"
+        android:textColor="#FFF5F1E6"
+        android:textAppearance="?attr/textAppearanceBody2"
+        android:visibility="gone" />
+
+    <!-- Ausklappbares Inventar-Panel (scrollbar, mit Namen) -->
+    <LinearLayout
+        android:id="@+id/inventoryPanel"
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="56dp"
+        android:background="#EE101828"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/inventoryList"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonCraft"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginEnd="8dp"
+            android:enabled="false"
+            android:text="@string/inventory_craft"
+            android:textColor="#FFE0A73C" />
+
+    </LinearLayout>
+
+    <!-- Minimierte Inventarleiste unten mit Aufklapp-Griff -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom"
+        android:background="#99101828"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonInventoryToggle"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:minWidth="0dp"
+            android:text="@string/inventory_expand"
+            android:textColor="#FFF5F1E6" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/inventoryBar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:orientation="horizontal"
+            android:paddingHorizontal="4dp" />
+
+    </LinearLayout>
+
+    <include
+        android:id="@+id/dialogOverlay"
+        layout="@layout/view_dialog_overlay" />
+
+    <include
+        android:id="@+id/craftOverlay"
+        layout="@layout/view_crafting_overlay" />
+
+    <include
+        android:id="@+id/loadingOverlay"
+        layout="@layout/view_loading_overlay" />
+
+</FrameLayout>

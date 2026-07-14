@@ -1,0 +1,336 @@
+package com.castigaro.thellmadventure.render
+
+import android.graphics.Canvas
+import android.graphics.Path
+import android.graphics.RectF
+import com.castigaro.thellmadventure.world.Palette
+import com.castigaro.thellmadventure.world.Prop
+import com.castigaro.thellmadventure.world.PropType
+import com.castigaro.thellmadventure.world.SLOT_COLORS
+import kotlin.math.sin
+
+/**
+ * Malt jede Requisite prozedural aus Vektorformen — pro [PropType] eine
+ * eigene Silhouette, eingefärbt über Palette und Farb-Slot. Die KI wählt
+ * nur Typ, Position und Farbe; gezeichnet wird hier deterministisch.
+ */
+object PropPainter {
+
+    private val TW = IsoMath.TILE_W
+    private val TH = IsoMath.TILE_H
+
+    fun draw(canvas: Canvas, prop: Prop, palette: Palette, timeMs: Long) {
+        val cx = IsoMath.tileCenterX(prop.tx, prop.ty)
+        val cy = IsoMath.tileCenterY(prop.tx, prop.ty)
+        val color = SLOT_COLORS[prop.colorSlot.coerceIn(0, SLOT_COLORS.size - 1)]
+
+        PaintKit.dropShadow(canvas, cx, cy, TW * 0.30f)
+
+        when (prop.type) {
+            PropType.KISTE -> kiste(canvas, cx, cy, color, prop)
+            PropType.TRUHE -> truhe(canvas, cx, cy, color, prop)
+            PropType.FASS -> fass(canvas, cx, cy, color)
+            PropType.REGAL -> regal(canvas, cx, cy, color)
+            PropType.TISCH -> tisch(canvas, cx, cy, color)
+            PropType.STUHL -> stuhl(canvas, cx, cy, color)
+            PropType.BETT -> bett(canvas, cx, cy, color)
+            PropType.OFEN -> ofen(canvas, cx, cy, color, prop, timeMs)
+            PropType.KAMIN -> kamin(canvas, cx, cy, color, prop, timeMs)
+            PropType.TERMINAL -> terminal(canvas, cx, cy, color, palette, prop, timeMs)
+            PropType.KONSOLE -> konsole(canvas, cx, cy, color, palette, prop, timeMs)
+            PropType.HEBEL -> hebel(canvas, cx, cy, color, prop)
+            PropType.ROHR -> rohr(canvas, cx, cy, color)
+            PropType.LAMPE -> lampe(canvas, cx, cy, color, prop, timeMs)
+            PropType.STATUE -> statue(canvas, cx, cy, color)
+            PropType.BRUNNEN -> brunnen(canvas, cx, cy, color, palette)
+            PropType.KESSEL -> kessel(canvas, cx, cy, color)
+            PropType.PFLANZE -> pflanze(canvas, cx, cy, color)
+            PropType.KAKTUS -> kaktus(canvas, cx, cy)
+            PropType.PILZ -> pilz(canvas, cx, cy, color)
+            PropType.KRISTALL -> kristall(canvas, cx, cy, color, timeMs)
+            PropType.STEIN -> stein(canvas, cx, cy)
+            PropType.TEPPICH -> teppich(canvas, cx, cy, color)
+            PropType.SCHILD -> schild(canvas, cx, cy, color)
+            PropType.SPIEGEL -> spiegel(canvas, cx, cy, color, palette)
+            PropType.ALTAR -> altar(canvas, cx, cy, color, palette)
+            PropType.ANKER -> anker(canvas, cx, cy, color)
+            PropType.SEIL -> seil(canvas, cx, cy, color)
+            PropType.LEITER -> leiter(canvas, cx, cy, color)
+            PropType.UHR -> uhr(canvas, cx, cy, color)
+        }
+
+        drawStateBadges(canvas, cx, cy, prop, palette)
+        if (prop.itemId != null) drawGlint(canvas, cx, cy - TH * 1.1f, timeMs)
+    }
+
+    // ---- Silhouetten -------------------------------------------------------
+
+    private fun kiste(canvas: Canvas, cx: Float, cy: Float, color: Int, prop: Prop) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.30f, TH * 0.30f, TH * 0.70f, color)
+        if (prop.states["offen"] == true) {
+            canvas.drawPath(PaintKit.diamond(cx, cy - TH * 0.70f, TW * 0.24f, TH * 0.24f), PaintKit.solid(0xFF20140C.toInt()))
+        }
+    }
+
+    private fun truhe(canvas: Canvas, cx: Float, cy: Float, color: Int, prop: Prop) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.32f, TH * 0.32f, TH * 0.55f, color)
+        val lidY = cy - TH * (if (prop.states["offen"] == true) 0.95f else 0.62f)
+        canvas.drawPath(PaintKit.diamond(cx, lidY, TW * 0.34f, TH * 0.30f), PaintKit.solid(PaintKit.shade(color, 1.25f)))
+        canvas.drawCircle(cx, cy - TH * 0.30f, TH * 0.08f, PaintKit.solid(PaintKit.GOLD))
+    }
+
+    private fun fass(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.22f, TH * 0.85f, color)
+        val band = PaintKit.line(PaintKit.shade(color, 0.55f), TH * 0.06f)
+        canvas.drawLine(cx - TW * 0.22f, cy - TH * 0.30f, cx + TW * 0.22f, cy - TH * 0.30f, band)
+        canvas.drawLine(cx - TW * 0.22f, cy - TH * 0.60f, cx + TW * 0.22f, cy - TH * 0.60f, band)
+    }
+
+    private fun regal(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.30f, TH * 0.30f, TH * 1.60f, color)
+        val line = PaintKit.line(PaintKit.shade(color, 0.55f), TH * 0.05f)
+        canvas.drawLine(cx - TW * 0.30f, cy - TH * 0.55f, cx, cy - TH * 0.25f, line)
+        canvas.drawLine(cx - TW * 0.30f, cy - TH * 1.05f, cx, cy - TH * 0.75f, line)
+    }
+
+    private fun tisch(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        val leg = PaintKit.solid(PaintKit.shade(color, 0.65f))
+        canvas.drawRect(cx - TW * 0.24f, cy - TH * 0.55f, cx - TW * 0.18f, cy, leg)
+        canvas.drawRect(cx + TW * 0.18f, cy - TH * 0.55f, cx + TW * 0.24f, cy, leg)
+        canvas.drawPath(PaintKit.diamond(cx, cy - TH * 0.55f, TW * 0.34f, TH * 0.30f), PaintKit.solid(PaintKit.shade(color, 1.1f)))
+    }
+
+    private fun stuhl(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.16f, TH * 0.16f, TH * 0.38f, color)
+        canvas.drawRect(cx - TW * 0.16f, cy - TH * 0.95f, cx - TW * 0.08f, cy - TH * 0.38f, PaintKit.solid(PaintKit.shade(color, 0.8f)))
+    }
+
+    private fun bett(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.36f, TH * 0.36f, TH * 0.35f, color)
+        canvas.drawPath(PaintKit.diamond(cx - TW * 0.12f, cy - TH * 0.42f, TW * 0.12f, TH * 0.12f), PaintKit.solid(PaintKit.WEISS))
+    }
+
+    private fun ofen(canvas: Canvas, cx: Float, cy: Float, color: Int, prop: Prop, timeMs: Long) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.28f, TH * 0.28f, TH * 0.90f, PaintKit.shade(color, 0.6f))
+        val glow = if (prop.states["an"] == true) pulse(timeMs, 200, 255) else 70
+        canvas.drawCircle(cx, cy - TH * 0.35f, TH * 0.16f, PaintKit.solid(PaintKit.withAlpha(0xFFE06A2C.toInt(), glow)))
+    }
+
+    private fun kamin(canvas: Canvas, cx: Float, cy: Float, color: Int, prop: Prop, timeMs: Long) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.32f, TH * 0.32f, TH * 1.40f, PaintKit.shade(color, 0.55f))
+        if (prop.states["an"] == true) {
+            val flameH = TH * (0.30f + 0.08f * sin(timeMs / 120.0).toFloat())
+            canvas.drawPath(Path().apply {
+                moveTo(cx - TH * 0.14f, cy - TH * 0.15f)
+                quadTo(cx, cy - TH * 0.15f - flameH * 2f, cx + TH * 0.14f, cy - TH * 0.15f)
+                close()
+            }, PaintKit.solid(0xFFE0A73C.toInt()))
+        }
+    }
+
+    private fun terminal(canvas: Canvas, cx: Float, cy: Float, color: Int, palette: Palette, prop: Prop, timeMs: Long) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.24f, TH * 0.24f, TH * 1.05f, PaintKit.shade(color, 0.7f))
+        val on = prop.states["an"] == true
+        val screen = if (on) palette.accent else PaintKit.shade(palette.accent, 0.3f)
+        canvas.drawRect(cx - TW * 0.14f, cy - TH * 1.00f, cx + TW * 0.02f, cy - TH * 0.60f, PaintKit.solid(screen))
+        if (on) {
+            val blink = pulse(timeMs, 120, 255)
+            canvas.drawRect(cx - TW * 0.12f, cy - TH * 0.95f, cx - TW * 0.02f, cy - TH * 0.90f, PaintKit.solid(PaintKit.withAlpha(PaintKit.WEISS, blink)))
+        }
+    }
+
+    private fun konsole(canvas: Canvas, cx: Float, cy: Float, color: Int, palette: Palette, prop: Prop, timeMs: Long) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.32f, TH * 0.32f, TH * 0.45f, PaintKit.shade(color, 0.7f))
+        val on = prop.states["an"] == true
+        for (i in 0..2) {
+            val alpha = if (on) pulse(timeMs + i * 300L, 90, 255) else 60
+            canvas.drawCircle(cx - TW * 0.12f + i * TW * 0.10f, cy - TH * 0.50f, TH * 0.05f, PaintKit.solid(PaintKit.withAlpha(palette.accent, alpha)))
+        }
+    }
+
+    private fun hebel(canvas: Canvas, cx: Float, cy: Float, color: Int, prop: Prop) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.14f, TH * 0.14f, TH * 0.25f, PaintKit.shade(color, 0.6f))
+        val up = prop.states["an"] != true
+        val tipX = if (up) cx - TW * 0.10f else cx + TW * 0.10f
+        canvas.drawLine(cx, cy - TH * 0.25f, tipX, cy - TH * 0.80f, PaintKit.line(PaintKit.shade(color, 0.9f), TH * 0.07f))
+        canvas.drawCircle(tipX, cy - TH * 0.80f, TH * 0.10f, PaintKit.solid(PaintKit.GOLD))
+    }
+
+    private fun rohr(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.09f, TH * 1.60f, PaintKit.shade(color, 0.8f))
+        canvas.drawRect(cx - TW * 0.09f, cy - TH * 1.60f, cx + TW * 0.24f, cy - TH * 1.42f, PaintKit.solid(PaintKit.shade(color, 0.9f)))
+    }
+
+    private fun lampe(canvas: Canvas, cx: Float, cy: Float, color: Int, prop: Prop, timeMs: Long) {
+        canvas.drawLine(cx, cy, cx, cy - TH * 1.30f, PaintKit.line(PaintKit.shade(color, 0.6f), TH * 0.07f))
+        val on = prop.states["an"] != false // Lampen leuchten standardmäßig
+        if (on) {
+            canvas.drawCircle(cx, cy - TH * 1.35f, TH * 0.30f, PaintKit.solid(PaintKit.withAlpha(0xFFF0E0B8.toInt(), pulse(timeMs, 40, 70))))
+        }
+        canvas.drawCircle(cx, cy - TH * 1.35f, TH * 0.14f, PaintKit.solid(if (on) 0xFFF0E0B8.toInt() else PaintKit.shade(color, 0.5f)))
+    }
+
+    private fun statue(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        val stone = PaintKit.shade(color, 0.75f)
+        PaintKit.cube(canvas, cx, cy, TW * 0.24f, TH * 0.24f, TH * 0.30f, stone)
+        canvas.drawPath(Path().apply {
+            moveTo(cx - TW * 0.10f, cy - TH * 0.30f)
+            lineTo(cx - TW * 0.06f, cy - TH * 1.10f)
+            lineTo(cx + TW * 0.06f, cy - TH * 1.10f)
+            lineTo(cx + TW * 0.10f, cy - TH * 0.30f)
+            close()
+        }, PaintKit.solid(PaintKit.shade(stone, 1.15f)))
+        canvas.drawCircle(cx, cy - TH * 1.22f, TH * 0.14f, PaintKit.solid(PaintKit.shade(stone, 1.15f)))
+    }
+
+    private fun brunnen(canvas: Canvas, cx: Float, cy: Float, color: Int, palette: Palette) {
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.28f, TH * 0.45f, PaintKit.shade(color, 0.7f))
+        canvas.drawOval(RectF(cx - TW * 0.20f, cy - TH * 0.55f, cx + TW * 0.20f, cy - TH * 0.35f), PaintKit.solid(palette.accent))
+    }
+
+    private fun kessel(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.24f, TH * 0.60f, PaintKit.shade(color, 0.5f))
+        canvas.drawOval(RectF(cx - TW * 0.28f, cy - TH * 0.70f, cx + TW * 0.28f, cy - TH * 0.50f), PaintKit.solid(PaintKit.shade(color, 0.4f)))
+    }
+
+    private fun pflanze(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.14f, TH * 0.30f, 0xFF8A5A34.toInt())
+        val leaf = PaintKit.solid(0xFF2F7D46.toInt())
+        canvas.drawOval(RectF(cx - TW * 0.20f, cy - TH * 1.05f, cx + TW * 0.04f, cy - TH * 0.25f), leaf)
+        canvas.drawOval(RectF(cx - TW * 0.04f, cy - TH * 1.15f, cx + TW * 0.20f, cy - TH * 0.30f), leaf)
+        canvas.drawCircle(cx, cy - TH * 0.95f, TH * 0.10f, PaintKit.solid(color))
+    }
+
+    private fun kaktus(canvas: Canvas, cx: Float, cy: Float) {
+        val green = 0xFF2F7D46.toInt()
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.10f, TH * 1.10f, green)
+        PaintKit.cylinder(canvas, cx - TW * 0.16f, cy - TH * 0.45f, TW * 0.06f, TH * 0.40f, PaintKit.shade(green, 0.85f))
+        PaintKit.cylinder(canvas, cx + TW * 0.16f, cy - TH * 0.30f, TW * 0.06f, TH * 0.30f, PaintKit.shade(green, 0.85f))
+    }
+
+    private fun pilz(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.08f, TH * 0.45f, PaintKit.WEISS)
+        canvas.drawOval(RectF(cx - TW * 0.22f, cy - TH * 0.80f, cx + TW * 0.22f, cy - TH * 0.35f), PaintKit.solid(color))
+        canvas.drawCircle(cx - TW * 0.08f, cy - TH * 0.60f, TH * 0.05f, PaintKit.solid(PaintKit.WEISS))
+        canvas.drawCircle(cx + TW * 0.09f, cy - TH * 0.55f, TH * 0.04f, PaintKit.solid(PaintKit.WEISS))
+    }
+
+    private fun kristall(canvas: Canvas, cx: Float, cy: Float, color: Int, timeMs: Long) {
+        val glow = pulse(timeMs, 120, 220)
+        canvas.drawPath(Path().apply {
+            moveTo(cx, cy - TH * 1.20f)
+            lineTo(cx + TW * 0.14f, cy - TH * 0.40f)
+            lineTo(cx, cy)
+            lineTo(cx - TW * 0.14f, cy - TH * 0.40f)
+            close()
+        }, PaintKit.solid(PaintKit.withAlpha(color, glow)))
+        canvas.drawPath(Path().apply {
+            moveTo(cx + TW * 0.16f, cy - TH * 0.65f)
+            lineTo(cx + TW * 0.26f, cy - TH * 0.25f)
+            lineTo(cx + TW * 0.12f, cy)
+            close()
+        }, PaintKit.solid(PaintKit.withAlpha(PaintKit.shade(color, 1.2f), glow)))
+    }
+
+    private fun stein(canvas: Canvas, cx: Float, cy: Float) {
+        val grau = 0xFF6E6152.toInt()
+        canvas.drawPath(Path().apply {
+            moveTo(cx - TW * 0.26f, cy)
+            quadTo(cx - TW * 0.22f, cy - TH * 0.70f, cx, cy - TH * 0.62f)
+            quadTo(cx + TW * 0.26f, cy - TH * 0.55f, cx + TW * 0.24f, cy)
+            close()
+        }, PaintKit.solid(grau))
+        canvas.drawCircle(cx - TW * 0.06f, cy - TH * 0.35f, TH * 0.07f, PaintKit.solid(PaintKit.shade(grau, 1.2f)))
+    }
+
+    private fun teppich(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        canvas.drawPath(PaintKit.diamond(cx, cy, TW * 0.40f, TH * 0.40f), PaintKit.solid(color))
+        canvas.drawPath(PaintKit.diamond(cx, cy, TW * 0.28f, TH * 0.28f), PaintKit.solid(PaintKit.shade(color, 1.2f)))
+    }
+
+    private fun schild(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        canvas.drawLine(cx, cy, cx, cy - TH * 0.90f, PaintKit.line(0xFF5E3B21.toInt(), TH * 0.07f))
+        canvas.drawPath(PaintKit.roundedRect(cx - TW * 0.20f, cy - TH * 1.15f, cx + TW * 0.20f, cy - TH * 0.75f, TH * 0.08f), PaintKit.solid(color))
+    }
+
+    private fun spiegel(canvas: Canvas, cx: Float, cy: Float, color: Int, palette: Palette) {
+        canvas.drawPath(PaintKit.roundedRect(cx - TW * 0.16f, cy - TH * 1.40f, cx + TW * 0.16f, cy - TH * 0.10f, TH * 0.15f), PaintKit.solid(PaintKit.shade(color, 0.7f)))
+        canvas.drawPath(PaintKit.roundedRect(cx - TW * 0.11f, cy - TH * 1.30f, cx + TW * 0.11f, cy - TH * 0.20f, TH * 0.10f), PaintKit.solid(palette.bgTop))
+        canvas.drawLine(cx - TW * 0.06f, cy - TH * 1.20f, cx + TW * 0.05f, cy - TH * 0.55f, PaintKit.line(PaintKit.withAlpha(PaintKit.WEISS, 120), TH * 0.05f))
+    }
+
+    private fun altar(canvas: Canvas, cx: Float, cy: Float, color: Int, palette: Palette) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.34f, TH * 0.34f, TH * 0.55f, PaintKit.shade(color, 0.8f))
+        canvas.drawPath(PaintKit.diamond(cx, cy - TH * 0.62f, TW * 0.14f, TH * 0.14f), PaintKit.solid(palette.accent))
+    }
+
+    private fun anker(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        val metal = PaintKit.line(PaintKit.shade(color, 0.6f), TH * 0.09f)
+        canvas.drawLine(cx, cy - TH * 1.10f, cx, cy - TH * 0.15f, metal)
+        canvas.drawCircle(cx, cy - TH * 1.12f, TH * 0.12f, PaintKit.line(PaintKit.shade(color, 0.6f), TH * 0.06f))
+        canvas.drawLine(cx - TW * 0.16f, cy - TH * 0.80f, cx + TW * 0.16f, cy - TH * 0.80f, metal)
+        canvas.drawPath(Path().apply {
+            moveTo(cx - TW * 0.18f, cy - TH * 0.35f)
+            quadTo(cx, cy + TH * 0.05f, cx + TW * 0.18f, cy - TH * 0.35f)
+        }, metal)
+    }
+
+    private fun seil(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        val rope = PaintKit.line(PaintKit.shade(color, 0.9f), TH * 0.09f)
+        for (i in 0..2) {
+            canvas.drawOval(RectF(cx - TW * 0.22f, cy - TH * (0.22f + i * 0.14f), cx + TW * 0.22f, cy + TH * 0.10f - TH * i * 0.14f), rope)
+        }
+    }
+
+    private fun leiter(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        val holz = PaintKit.line(PaintKit.shade(color, 0.75f), TH * 0.06f)
+        canvas.drawLine(cx - TW * 0.12f, cy, cx - TW * 0.12f, cy - TH * 1.60f, holz)
+        canvas.drawLine(cx + TW * 0.12f, cy, cx + TW * 0.12f, cy - TH * 1.60f, holz)
+        for (i in 1..4) {
+            canvas.drawLine(cx - TW * 0.12f, cy - TH * 0.32f * i, cx + TW * 0.12f, cy - TH * 0.32f * i, holz)
+        }
+    }
+
+    private fun uhr(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        PaintKit.cube(canvas, cx, cy, TW * 0.16f, TH * 0.16f, TH * 1.50f, PaintKit.shade(color, 0.75f))
+        canvas.drawCircle(cx - TW * 0.06f, cy - TH * 1.25f, TH * 0.15f, PaintKit.solid(PaintKit.WEISS))
+        canvas.drawLine(cx - TW * 0.06f, cy - TH * 1.25f, cx - TW * 0.06f, cy - TH * 1.36f, PaintKit.line(0xFF20140C.toInt(), TH * 0.03f))
+    }
+
+    // ---- Zustands-Anzeiger und Funkeln -------------------------------------
+
+    private fun drawStateBadges(canvas: Canvas, cx: Float, cy: Float, prop: Prop, palette: Palette) {
+        if (prop.states["verschlossen"] == true) {
+            canvas.drawCircle(cx + IsoMath.TILE_W * 0.22f, cy - IsoMath.TILE_H * 0.9f, IsoMath.TILE_H * 0.10f, PaintKit.solid(PaintKit.GOLD))
+            canvas.drawCircle(cx + IsoMath.TILE_W * 0.22f, cy - IsoMath.TILE_H * 0.9f, IsoMath.TILE_H * 0.05f, PaintKit.solid(0xFF20140C.toInt()))
+        }
+        if (prop.states["kaputt"] == true) {
+            val riss = PaintKit.line(0xCC20140C.toInt(), IsoMath.TILE_H * 0.045f)
+            canvas.drawLine(cx - IsoMath.TILE_W * 0.08f, cy - IsoMath.TILE_H * 0.7f, cx, cy - IsoMath.TILE_H * 0.45f, riss)
+            canvas.drawLine(cx, cy - IsoMath.TILE_H * 0.45f, cx - IsoMath.TILE_W * 0.06f, cy - IsoMath.TILE_H * 0.2f, riss)
+        }
+    }
+
+    /** Kleines Funkeln über Requisiten, die einen Gegenstand bergen. */
+    private fun drawGlint(canvas: Canvas, cx: Float, cy: Float, timeMs: Long) {
+        val alpha = pulse(timeMs, 90, 255)
+        val p = PaintKit.solid(PaintKit.withAlpha(PaintKit.GOLD, alpha))
+        val r = IsoMath.TILE_H * 0.09f
+        canvas.drawPath(Path().apply {
+            moveTo(cx, cy - r * 2f)
+            lineTo(cx + r * 0.5f, cy - r * 0.5f)
+            lineTo(cx + r * 2f, cy)
+            lineTo(cx + r * 0.5f, cy + r * 0.5f)
+            lineTo(cx, cy + r * 2f)
+            lineTo(cx - r * 0.5f, cy + r * 0.5f)
+            lineTo(cx - r * 2f, cy)
+            lineTo(cx - r * 0.5f, cy - r * 0.5f)
+            close()
+        }, p)
+    }
+
+    private fun pulse(timeMs: Long, min: Int, max: Int): Int {
+        val t = (sin(timeMs / 350.0) + 1.0) / 2.0
+        return (min + (max - min) * t).toInt()
+    }
+}

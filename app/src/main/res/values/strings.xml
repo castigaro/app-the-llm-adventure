@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">The LLM Adventure</string>
+
+    <!-- Hauptbildschirm -->
+    <string name="main_subtitle">Ein Spiel, das sich beim Spielen erschafft.\nKI und Mensch bauen die Welt gemeinsam.</string>
+    <string name="main_continue">Weiterspielen</string>
+    <string name="main_new_game">Neues Spiel</string>
+    <string name="main_saves_heading">Spielstände</string>
+    <string name="main_no_saves">Noch keine Spielstände — starte ein neues Abenteuer!</string>
+    <string name="main_delete_save_title">Spielstand löschen?</string>
+    <string name="main_delete_save_message">„%1$s" wird endgültig gelöscht.</string>
+    <string name="delete">Löschen</string>
+    <string name="cancel">Abbrechen</string>
+
+    <!-- App-Menü -->
+    <string name="menu_app_settings">App-Einstellungen</string>
+    <string name="menu_update">Nach Update suchen</string>
+    <string name="menu_help">Hilfe</string>
+
+    <!-- App-Einstellungen -->
+    <string name="app_settings_title">App-Einstellungen</string>
+    <string name="app_settings_intro">Dieses Spiel erschafft seine Welt mit einem KI-Modell. Hinterlege hier deinen Anthropic- oder OpenAI-API-Key.</string>
+
+    <!-- Einrichtung (kein Key) -->
+    <string name="setup_title">Erst einrichten</string>
+    <string name="setup_intro">The LLM Adventure erfindet Räume, Figuren und Rätsel während du spielst — dafür braucht es einen API-Key. Es gibt bewusst keinen Offline-Modus: Die KI IST das Spiel.</string>
+    <string name="setup_step1">1. Hol dir einen API-Key</string>
+    <string name="setup_anthropic">Anthropic-Key holen (console.anthropic.com)</string>
+    <string name="setup_openai">OpenAI-Key holen (platform.openai.com)</string>
+    <string name="setup_step2">2. Key hinterlegen</string>
+    <string name="setup_open_settings">App-Einstellungen öffnen</string>
+
+    <!-- Hilfe -->
+    <string name="help_what_title">Worum geht es?</string>
+    <string name="help_what">Du erkundest eine Welt, die es vorher nicht gab. Jede Tür ins Ungewisse öffnet einen Raum, den die KI im Moment des Durchschreitens erfindet — und der dann bleibt. Aufgaben, Figuren und Gegenstände entstehen beim Spielen. Jede Partie ist anders.</string>
+    <string name="help_controls_title">Steuerung</string>
+    <string name="help_controls">Tippe auf eine Kachel, um dorthin zu laufen. Tippe auf eine Requisite, um sie zu untersuchen oder aufzunehmen. Ziehe mit dem Finger, um die Kamera zu schwenken; der ⌖-Knopf zentriert wieder auf deine Figur. Über „▲ Inventar" öffnest du das ausklappbare Inventar.</string>
+    <string name="help_key_title">Warum ein API-Key?</string>
+    <string name="help_key">Das Spiel läuft lokal auf deinem Gerät und spricht direkt mit dem KI-Anbieter deiner Wahl. Der Key bleibt auf dem Gerät. Kosten entstehen nur für die tatsächlich erzeugten Inhalte und werden in den App-Einstellungen mitgezählt.</string>
+
+    <!-- Neues Spiel / Intake -->
+    <string name="newgame_title">Neue Welt</string>
+    <string name="newgame_pick_title">Wo beginnt deine Geschichte?</string>
+    <string name="newgame_weaving">Die Geschichte wird gewebt …</string>
+    <string name="newgame_weaving_flavor">Aus deinen Antworten entsteht eine Welt mit einem geheimen Ziel …</string>
+    <string name="newgame_weave_failed_title">Noch nicht …</string>
+    <string name="newgame_weave_failed">Die Geschichte wollte sich noch nicht weben. Erneut versuchen?</string>
+    <string name="newgame_retry">Erneut versuchen</string>
+    <string name="newgame_your_stories">Deine gesicherten Geschichten</string>
+    <string name="newgame_template_option">📖 %1$s</string>
+
+    <!-- Spielstände -->
+    <string name="save_default_name">Neue Welt</string>
+    <string name="save_clone_name">Sicherung %1$s</string>
+    <string name="save_details">%1$s · %2$d Räume entdeckt</string>
+
+    <!-- Spielbildschirm -->
+    <string name="game_menu">Menü</string>
+    <string name="game_menu_title">Spielmenü</string>
+    <string name="game_recenter">⌖ Zentrieren</string>
+    <string name="game_save">Spielstand sichern</string>
+    <string name="game_saved">Spielstand gesichert.</string>
+    <string name="game_save_as_story">Als neue Geschichte sichern …</string>
+    <string name="game_save_as_story_title">Als Geschichte sichern</string>
+    <string name="game_save_as_story_message">Der jetzige Zustand deiner Welt wird zu einer wiederspielbaren Startvorlage. Beim erneuten Spielen entwickeln sich unentdeckte Räume neu.</string>
+    <string name="game_save_as_story_confirm">Sichern</string>
+    <string name="game_saved_as_story">Als neue Geschichte gesichert.</string>
+    <string name="game_quit">Beenden</string>
+    <string name="game_quit_title">Spiel wirklich verlassen?</string>
+    <string name="game_quit_message">Dein Fortschritt wurde automatisch gespeichert.</string>
+    <string name="menu_fullscreen_on">Vollbild einschalten</string>
+    <string name="menu_fullscreen_off">Vollbild ausschalten</string>
+
+    <!-- Spielfläche -->
+    <string name="walk_blocked">Da kommst du nicht hin.</string>
+    <string name="door_locked">Diese Tür ist verschlossen.</string>
+    <string name="door_undiscovered">Hinter „%1$s" liegt unentdecktes Gebiet — die Welt dahinter entsteht erst, wenn du hindurchgehst.</string>
+    <string name="door_stuck">Die Tür klemmt. Vielleicht später noch einmal versuchen.</string>
+    <string name="room_generating">Du drückst die Klinke — dahinter formt sich etwas …</string>
+    <string name="room_entered">%1$s</string>
+    <string name="world_growth_hint">Die Welt ist inzwischen weitläufig — jede weitere Erweiterung macht die KI-Anfragen etwas größer und langsamer.</string>
+    <string name="item_taken">Du nimmst: %1$s</string>
+    <string name="item_selected">%1$s ausgewählt — tippe ein Ziel an.</string>
+    <string name="item_deselected">Auswahl aufgehoben.</string>
+    <string name="state_locked">verschlossen</string>
+    <string name="state_open">offen</string>
+    <string name="state_on">an</string>
+    <string name="state_broken">kaputt</string>
+
+    <!-- Inventar -->
+    <string name="inventory_expand">▲ Inventar</string>
+    <string name="inventory_collapse">▼ Inventar</string>
+    <string name="inventory_items">Gegenstände</string>
+    <string name="inventory_skills">Fähigkeiten</string>
+    <string name="inventory_empty">Deine Taschen sind leer.</string>
+    <string name="inventory_craft">⚒ Werkbank</string>
+
+    <!-- Dialog -->
+    <string name="dialog_leave">Gespräch beenden</string>
+    <string name="dialog_busy">%1$s winkt ab: „Später, ich habe zu tun."</string>
+
+    <!-- Interaktion -->
+    <string name="use_nothing_happens">Nichts passiert. Noch nicht.</string>
+    <string name="use_needs_target">%1$s ausgewählt — tippe eine Requisite an.</string>
+
+    <!-- Crafting -->
+    <string name="craft_title">Werkbank</string>
+    <string name="craft_hint">Lege 2–3 Gegenstände in die Slots und verbinde sie zu etwas Neuem.</string>
+    <string name="craft_combine">Verbinden</string>
+    <string name="craft_impossible">Das passt nicht zusammen.</string>
+    <string name="craft_slipped">Die Teile rutschen dir aus den Händen — versuch es gleich noch mal.</string>
+    <string name="craft_success">%1$s</string>
+
+    <!-- Spiel-Einstellungen -->
+    <string name="game_settings">Spiel-Einstellungen</string>
+    <string name="game_settings_title">Spiel-Einstellungen</string>
+    <string name="settings_music">Hintergrundmusik</string>
+    <string name="settings_music_volume">Musiklautstärke</string>
+    <string name="settings_sfx">Soundeffekte</string>
+    <string name="settings_fullscreen">Vollbild-Standard</string>
+
+    <!-- Ende -->
+    <string name="ending_title">Das geheime Ziel ist erreicht!</string>
+    <string name="ending_message">„%1$s" findet ihr Ende.\n\nDein Ziel war: %2$s\n\nEntdeckte Räume: %3$d\nSpielzeit: %4$d Min.</string>
+    <string name="ending_back">Zurück zum Anfang</string>
+</resources>
