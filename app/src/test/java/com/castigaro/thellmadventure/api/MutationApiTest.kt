@@ -121,7 +121,8 @@ class MutationApiTest {
     @Test
     fun `API-Fehler wird nicht gecacht`() {
         val (save, room, prop) = saveWithProp()
-        server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error":{"message":"kaputt"}}"""))
+        // 404 = nicht-transient, wird also nicht automatisch wiederholt.
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":{"message":"kaputt"}}"""))
 
         val result = runCatching { MutationApi.interact(context, save, room, prop, withItem = null) }
 

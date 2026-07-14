@@ -66,6 +66,31 @@ class LlmClientTest {
     }.toString()
 
     @Test
+    fun `Ueberlastung 529 wird mit Wartezeit erneut versucht`() {
+        useAnthropic()
+        server.enqueue(MockResponse().setResponseCode(529).setBody("""{"error":{"message":"Overloaded"}}"""))
+        server.enqueue(MockResponse().setBody(anthropicBody("wieder da")))
+
+        val antwort = LlmClient.chat(context, "sys", listOf(LlmClient.Turn("user", "hi")))
+
+        assertEquals("wieder da", antwort)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun `dauerhafte Ueberlastung gibt nach drei Versuchen auf`() {
+        useAnthropic()
+        repeat(3) {
+            server.enqueue(MockResponse().setResponseCode(529).setBody("""{"error":{"message":"Overloaded"}}"""))
+        }
+
+        val result = runCatching { LlmClient.chat(context, "sys", listOf(LlmClient.Turn("user", "hi"))) }
+
+        assertTrue(result.isFailure)
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test
     fun `Leere Antwort wird einmal automatisch wiederholt`() {
         useAnthropic()
         // Erste Antwort ohne Text-Block (z. B. nur Denk-Blöcke), zweite normal.

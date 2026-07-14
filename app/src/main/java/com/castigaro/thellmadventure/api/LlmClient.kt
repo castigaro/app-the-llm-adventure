@@ -31,7 +31,8 @@ object LlmClient {
         .readTimeout(180, TimeUnit.SECONDS)
         .build()
 
-    class ApiException(message: String) : IOException(message)
+    /** [transient] = vorübergehender Serverzustand (Overload/Rate-Limit) — Wiederholung lohnt. */
+    class ApiException(message: String, val transient: Boolean = false) : IOException(message)
 
     /** Ein Gesprächsbeitrag für die Chat-Anfrage. */
     class Turn(val role: String, val text: String) {
@@ -48,8 +49,12 @@ object LlmClient {
     /** Modelle, die Structured Outputs abgelehnt haben ("provider/model"). */
     private val noStructuredOutputs = mutableSetOf<String>()
 
+    /** Wartezeit vor der ersten Transient-Wiederholung (Tests setzen sie herunter). */
+    internal var retryDelayMs = 1500L
+
     internal fun resetForTest() {
         noStructuredOutputs.clear()
+        retryDelayMs = 1L
     }
 
     fun chat(
@@ -66,17 +71,46 @@ object LlmClient {
 
         val activeSchema = if (useSchema) schema else null
         return try {
-            request(context, config, systemPrompt, turns, maxTokens, activeSchema)
+            requestWithRetry(context, config, systemPrompt, turns, maxTokens, activeSchema)
         } catch (e: SchemaRejectedException) {
             // Modell kann kein Structured Output → merken und ohne Schema erneut.
             noStructuredOutputs.add(schemaKey)
-            request(context, config, systemPrompt, turns, maxTokens, schema = null)
+            requestWithRetry(context, config, systemPrompt, turns, maxTokens, schema = null)
         } catch (e: ApiException) {
             if (!e.message.orEmpty().startsWith("Leere Antwort")) throw e
             // Leere Antworten sind meist transient — einmal automatisch wiederholen.
             Log.w(TAG, "Leere Antwort vom Modell — zweiter Versuch (${e.message})")
-            request(context, config, systemPrompt, turns, maxTokens, activeSchema)
+            requestWithRetry(context, config, systemPrompt, turns, maxTokens, activeSchema)
         }
+    }
+
+    /**
+     * Führt die Anfrage aus und wiederholt sie bei vorübergehenden
+     * Serverfehlern (529 Overloaded, 429 Rate-Limit, 5xx) mit wachsender
+     * Wartezeit. Läuft immer auf Dispatchers.IO — Thread.sleep ist okay.
+     */
+    private fun requestWithRetry(
+        context: Context,
+        config: ProviderSettings.ActiveConfig,
+        systemPrompt: String,
+        turns: List<Turn>,
+        maxTokens: Int,
+        schema: JSONObject?,
+    ): String {
+        var delayMs = retryDelayMs
+        var lastError: ApiException? = null
+        repeat(MAX_TRANSIENT_ATTEMPTS) { attempt ->
+            try {
+                return request(context, config, systemPrompt, turns, maxTokens, schema)
+            } catch (e: ApiException) {
+                if (!e.transient) throw e
+                lastError = e
+                Log.w(TAG, "Transienter API-Fehler, Versuch ${attempt + 1}/$MAX_TRANSIENT_ATTEMPTS: ${e.message}")
+                Thread.sleep(delayMs)
+                delayMs *= 2
+            }
+        }
+        throw lastError!!
     }
 
     /** HTTP 400 mit gesetztem Schema — Kandidat für den Ohne-Schema-Fallback. */
@@ -136,7 +170,10 @@ object LlmClient {
                 if (response.code == 400 && schema != null) {
                     throw SchemaRejectedException(apiErrorMessage(responseText, response.code))
                 }
-                throw ApiException(apiErrorMessage(responseText, response.code))
+                throw ApiException(
+                    apiErrorMessage(responseText, response.code),
+                    transient = response.code in TRANSIENT_CODES,
+                )
             }
             val json = JSONObject(responseText)
             json.optJSONObject("usage")?.let { usage ->
@@ -206,7 +243,10 @@ object LlmClient {
                 if (response.code == 400 && schema != null) {
                     throw SchemaRejectedException(apiErrorMessage(responseText, response.code))
                 }
-                throw ApiException(apiErrorMessage(responseText, response.code))
+                throw ApiException(
+                    apiErrorMessage(responseText, response.code),
+                    transient = response.code in TRANSIENT_CODES,
+                )
             }
             val json = JSONObject(responseText)
             json.optJSONObject("usage")?.let { usage ->
@@ -240,6 +280,7 @@ object LlmClient {
             detail != null -> "API-Fehler ($code): $detail"
             code == 401 -> "API-Key ungültig (401)."
             code == 429 -> "Rate-Limit erreicht (429) — bitte kurz warten."
+            code == 529 -> "KI-Dienst gerade überlastet (529) — bitte gleich noch einmal versuchen."
             else -> "API-Fehler ($code)."
         }
         // Fürs Debugging via Logcat — die App zeigt Fehler nur als Toast/Kommentar.
@@ -248,6 +289,10 @@ object LlmClient {
     }
 
     private const val TAG = "LlmAdventure"
+
+    /** Vorübergehende Serverzustände, bei denen eine Wiederholung lohnt. */
+    private val TRANSIENT_CODES = setOf(429, 500, 502, 503, 529)
+    private const val MAX_TRANSIENT_ATTEMPTS = 3
 
     /** Zieht das JSON-Objekt aus der Modellantwort (toleriert ```-Zäune und Fließtext). */
     fun extractJson(text: String): JSONObject {
