@@ -22,6 +22,9 @@ class WorldState {
     val skills = LinkedHashMap<String, Skill>()
     val melodies = LinkedHashMap<String, MelodySpec>()
 
+    /** Die Außenkarte; null nur bei Spielständen aus der Zeit vor der Außenwelt. */
+    var outdoor: OutdoorMap? = null
+
     /** Knappe Fakt-Strings inkl. ID, z. B. "f13 p2 aktiviert". Append-only. */
     val facts = mutableListOf<String>()
 
@@ -72,12 +75,28 @@ class WorldState {
     /** Gegenstände im Spieler-Inventar, in Erwerbsreihenfolge. */
     fun inventory(): List<Item> = items.values.filter { it.holder == Item.HOLDER_INVENTORY }
 
+    /** Alle Requisiten der Welt: Innenräume UND Außenparzellen. */
+    fun allProps(): Sequence<Prop> =
+        rooms.values.asSequence().flatMap { it.props.asSequence() } +
+            (outdoor?.allProps() ?: emptySequence())
+
+    /** Requisiten eines Orts (Raum-Id oder Parzellen-Id). */
+    fun ortProps(ortId: String): List<Prop> =
+        rooms[ortId]?.props ?: outdoor?.parcels?.get(ortId)?.props ?: emptyList()
+
+    /** Anzeigename eines Orts (Raum oder Parzelle), null wenn unbekannt. */
+    fun ortName(ortId: String): String? =
+        rooms[ortId]?.name ?: outdoor?.parcels?.get(ortId)?.name
+
+    /** Zahl aller Orte (Innenräume + Parzellen) — Grundlage fürs Ziel-Pacing. */
+    fun orteCount(): Int = rooms.size + (outdoor?.parcels?.size ?: 0)
+
     /** Die Requisite, die einen Gegenstand birgt (oder null). */
     fun propHolding(itemId: String): Prop? {
         val item = items[itemId] ?: return null
         if (!item.holder.startsWith("prop:")) return null
         val propId = item.holder.removePrefix("prop:")
-        return rooms.values.asSequence().flatMap { it.props.asSequence() }.firstOrNull { it.id == propId }
+        return allProps().firstOrNull { it.id == propId }
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -90,6 +109,7 @@ class WorldState {
         put("facts", JSONArray().also { arr -> facts.forEach { arr.put(it) } })
         put("mutationCache", JSONObject().also { obj -> mutationCache.forEach { (k, v) -> obj.put(k, v) } })
         put("story", story?.toJson() ?: JSONObject.NULL)
+        put("outdoor", outdoor?.toJson() ?: JSONObject.NULL)
         put("counters", JSONObject().also { obj -> counters.forEach { (k, v) -> obj.put(k, v) } })
     }
 
@@ -135,6 +155,7 @@ class WorldState {
                 obj.keys().forEach { key -> world.mutationCache[key] = obj.optString(key) }
             }
             world.story = Story.fromJson(json.optJSONObject("story"))
+            world.outdoor = OutdoorMap.fromJson(json.optJSONObject("outdoor"))
             json.optJSONObject("counters")?.let { obj ->
                 obj.keys().forEach { key -> world.counters[key] = obj.optInt(key, 0) }
             }

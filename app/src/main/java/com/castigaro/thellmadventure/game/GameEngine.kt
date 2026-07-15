@@ -78,8 +78,7 @@ object GameEngine {
                 }
                 is Effect.SetPropState -> {
                     if (effect.key !in PROP_STATES) return@forEach
-                    val prop = world.rooms.values
-                        .asSequence().flatMap { it.props.asSequence() }
+                    val prop = world.allProps()
                         .firstOrNull { it.id == effect.propId } ?: return@forEach
                     prop.states[effect.key] = effect.value
                     world.addFact("${prop.id} ${effect.key}=${if (effect.value) "ja" else "nein"}")

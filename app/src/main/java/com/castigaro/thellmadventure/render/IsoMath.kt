@@ -42,6 +42,10 @@ object IsoMath {
         return if (tx in 0 until roomW && ty in 0 until roomH) tx to ty else null
     }
 
+    /** Ganzzahlige Kachel unter einem Weltpunkt — ohne Grenzen (Außenkarte). */
+    fun pickTileUnbounded(wx: Float, wy: Float): Pair<Int, Int> =
+        floor(tileX(wx, wy)).toInt() to floor(tileY(wx, wy)).toInt()
+
     /**
      * Painter's Algorithm: Entities mit kleinerer Kachelsumme liegen „hinten"
      * und werden zuerst gezeichnet; bei Gleichstand gewinnt das kleinere ty.
@@ -62,4 +66,38 @@ object IsoMath {
     fun roomMinY(): Float = -WALL_H
 
     fun roomMaxY(roomW: Int, roomH: Int): Float = worldY(roomW.toFloat(), roomH.toFloat())
+
+    // Grenzen eines beliebigen Kachelbereichs [minTx..maxTxExkl) × [minTy..maxTyExkl)
+    // in Weltkoordinaten — die Extreme liegen an den vier Eck-Kacheln der Raute.
+
+    fun boundsMinX(minTx: Int, maxTyExkl: Int): Float = worldX(minTx.toFloat(), maxTyExkl.toFloat())
+
+    fun boundsMaxX(maxTxExkl: Int, minTy: Int): Float = worldX(maxTxExkl.toFloat(), minTy.toFloat())
+
+    fun boundsMinY(minTx: Int, minTy: Int): Float = worldY(minTx.toFloat(), minTy.toFloat())
+
+    fun boundsMaxY(maxTxExkl: Int, maxTyExkl: Int): Float = worldY(maxTxExkl.toFloat(), maxTyExkl.toFloat())
+
+    /**
+     * Kachelbereich, der ein Welt-Rechteck (Kamera-Ausschnitt) vollständig
+     * umschließt: [minTx, minTy, maxTxExkl, maxTyExkl]. Grundlage des
+     * Frustum-Cullings — nur diese Kacheln werden gezeichnet. [padTiles]
+     * gibt Rand für hohe Sprites/Gebäude, die in den Ausschnitt hineinragen.
+     */
+    fun visibleTileRange(
+        minWx: Float, minWy: Float, maxWx: Float, maxWy: Float,
+        padTiles: Int = 3,
+    ): IntArray {
+        val ecken = arrayOf(
+            tileX(minWx, minWy) to tileY(minWx, minWy),
+            tileX(maxWx, minWy) to tileY(maxWx, minWy),
+            tileX(minWx, maxWy) to tileY(minWx, maxWy),
+            tileX(maxWx, maxWy) to tileY(maxWx, maxWy),
+        )
+        val minTx = floor(ecken.minOf { it.first }).toInt() - padTiles
+        val maxTx = floor(ecken.maxOf { it.first }).toInt() + 1 + padTiles
+        val minTy = floor(ecken.minOf { it.second }).toInt() - padTiles
+        val maxTy = floor(ecken.maxOf { it.second }).toInt() + 1 + padTiles
+        return intArrayOf(minTx, minTy, maxTx, maxTy)
+    }
 }

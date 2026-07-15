@@ -57,4 +57,34 @@ class GoalCheckerTest {
         save.finished = true
         assertFalse(GoalChecker.isReached(save))
     }
+
+    @Test
+    fun `erreiche_raum versteht draussen auch Parzellen-Ids`() {
+        val save = saveWithGoal(SecretGoal(GoalType.ERREICHE_RAUM, "g1"))
+        val outdoor = com.castigaro.thellmadventure.world.OutdoorMap()
+        outdoor.addParcel(com.castigaro.thellmadventure.world.Parcel("g1", 0, 0, "Wiese"))
+        save.world.outdoor = outdoor
+
+        // Noch im Raum r1 → nicht erfüllt
+        assertFalse(GoalChecker.isReached(save))
+
+        save.roomId = com.castigaro.thellmadventure.data.GameSave.ORT_DRAUSSEN
+        save.ptx = 5
+        save.pty = 5
+        assertTrue(GoalChecker.isReached(save))
+    }
+
+    @Test
+    fun `zustand_gesetzt findet auch Requisiten draussen`() {
+        val save = saveWithGoal(SecretGoal(GoalType.ZUSTAND_GESETZT, "p9", zustandKey = "an"))
+        val outdoor = com.castigaro.thellmadventure.world.OutdoorMap()
+        val parcel = com.castigaro.thellmadventure.world.Parcel("g1", 0, 0, "Wiese")
+        parcel.props.add(Prop("p9", PropType.HEBEL, 4, 4, "Hebel"))
+        outdoor.addParcel(parcel)
+        save.world.outdoor = outdoor
+
+        assertFalse(GoalChecker.isReached(save))
+        parcel.props.first().states["an"] = true
+        assertTrue(GoalChecker.isReached(save))
+    }
 }

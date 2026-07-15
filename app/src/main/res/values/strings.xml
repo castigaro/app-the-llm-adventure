@@ -54,7 +54,10 @@
     <!-- Spielstände -->
     <string name="save_default_name">Neue Welt</string>
     <string name="save_clone_name">Sicherung %1$s</string>
-    <string name="save_details">%1$s · %2$d Räume entdeckt</string>
+    <string name="save_details">%1$s · %2$d Orte entdeckt</string>
+    <string name="save_details_old">%1$s · altes Format (vor der Außenkarte)</string>
+    <string name="save_old_format_title">Spielstand aus früherer Version</string>
+    <string name="save_old_format_message">„%1$s" stammt aus der Zeit vor der Außenkarte und kann nicht mehr geladen werden. Du kannst ihn löschen oder behalten.</string>
 
     <!-- Spielbildschirm -->
     <string name="game_menu">Menü</string>
@@ -80,6 +83,10 @@
     <string name="door_stuck">Die Tür klemmt. Vielleicht später noch einmal versuchen.</string>
     <string name="room_generating">Du drückst die Klinke — dahinter formt sich etwas …</string>
     <string name="room_entered">%1$s</string>
+    <string name="land_forming">Hinter dem Nebel formt sich Land …</string>
+    <string name="fog_stays">Der Nebel weicht nicht. Vielleicht später noch einmal versuchen.</string>
+    <string name="outdoor_entered">Du trittst hinaus ins Freie.</string>
+    <string name="building_locked">Dieses Gebäude ist verschlossen.</string>
     <string name="world_growth_hint">Die Welt ist inzwischen weitläufig — jede weitere Erweiterung macht die KI-Anfragen etwas größer und langsamer.</string>
     <string name="history_button">Verlauf</string>
     <string name="history_title">Letzte Meldungen</string>

@@ -6,7 +6,6 @@ import com.castigaro.thellmadventure.world.Item
 import com.castigaro.thellmadventure.world.Npc
 import com.castigaro.thellmadventure.world.PROP_STATES
 import com.castigaro.thellmadventure.world.Prop
-import com.castigaro.thellmadventure.world.Room
 import com.castigaro.thellmadventure.world.Wall
 
 /**
@@ -35,20 +34,21 @@ object WhitelistCatalog {
         // Gegenstände, die diese Figur besitzt
         world.items.values.filter { it.holder == Item.holderNpc(npc.id) }
             .forEach { ids.add("gib:${it.id}") }
-        // Türen im Raum der Figur entriegeln (Figur „kennt den Code")
+        // Türen im Raum der Figur entriegeln (Figur „kennt den Code").
+        // Draußen (npc.roomId = Parzellen-Id) gibt es keine Türen.
         world.room(npc.roomId)?.doors?.filter { it.locked }?.forEach { door ->
             ids.add("oeffne:${npc.roomId}.${door.wall.name}.${door.pos}")
         }
-        // Requisiten-Zustände im Raum der Figur
-        world.room(npc.roomId)?.props?.forEach { prop ->
+        // Requisiten-Zustände am Ort der Figur (Raum oder Parzelle)
+        world.ortProps(npc.roomId).forEach { prop ->
             PROP_STATES.forEach { key -> ids.add("zustand:${prop.id}.$key=an"); ids.add("zustand:${prop.id}.$key=aus") }
         }
         ids.add("fakt")
         return ids
     }
 
-    /** Erlaubte Effekt-IDs für eine Interaktion mit [prop] im [room]. */
-    fun forMutation(save: GameSave, room: Room, prop: Prop, withItem: Item?): List<String> {
+    /** Erlaubte Effekt-IDs für eine Interaktion mit [prop] am Ort [ortId]. */
+    fun forMutation(save: GameSave, ortId: String, prop: Prop, withItem: Item?): List<String> {
         val ids = mutableListOf<String>()
         // Zustände genau DIESER Requisite
         PROP_STATES.forEach { key -> ids.add("zustand:${prop.id}.$key=an"); ids.add("zustand:${prop.id}.$key=aus") }
@@ -56,9 +56,9 @@ object WhitelistCatalog {
         prop.itemId?.let { ids.add("nimm:$it") }
         // Der benutzte Gegenstand kann verbraucht werden
         withItem?.let { ids.add("verbrauche:${it.id}") }
-        // Türen dieses Raums entriegeln
-        room.doors.filter { it.locked }.forEach { door ->
-            ids.add("oeffne:${room.id}.${door.wall.name}.${door.pos}")
+        // Türen dieses Raums entriegeln (draußen gibt es keine)
+        save.world.room(ortId)?.doors?.filter { it.locked }?.forEach { door ->
+            ids.add("oeffne:$ortId.${door.wall.name}.${door.pos}")
         }
         ids.add("fakt")
         return ids

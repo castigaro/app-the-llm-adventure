@@ -29,7 +29,7 @@ class WhitelistCatalogTest {
     fun `nicht gewhitelistete Effekte werden verworfen`() {
         val save = save()
         val prop = save.world.room("r1")!!.props.first()
-        val erlaubt = WhitelistCatalog.forMutation(save, save.world.room("r1")!!, prop, null).toSet()
+        val erlaubt = WhitelistCatalog.forMutation(save, "r1", prop, null).toSet()
 
         val gemeldet = listOf(
             "zustand:p1.an=an",       // erlaubt
@@ -55,7 +55,7 @@ class WhitelistCatalogTest {
     fun `oeffne loest die passende verschlossene Tuer`() {
         val save = save()
         val room = save.world.room("r1")!!
-        val erlaubt = WhitelistCatalog.forMutation(save, room, room.props.first(), null).toSet()
+        val erlaubt = WhitelistCatalog.forMutation(save, room.id, room.props.first(), null).toSet()
         val effekte = WhitelistCatalog.resolve(save, listOf("oeffne:r1.O.3"), erlaubt)
         assertEquals(1, effekte.size)
         assertTrue(effekte.first() is Effect.UnlockDoor)

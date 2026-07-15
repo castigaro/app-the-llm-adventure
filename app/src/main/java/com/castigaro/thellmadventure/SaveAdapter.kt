@@ -38,10 +38,14 @@ class SaveAdapter(
         holder.name.text = save.name
         val stamp = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
             .format(Date(save.updatedAt))
-        val raeume = save.world.rooms.size
-        holder.details.text = holder.itemView.context.getString(
-            R.string.save_details, stamp, raeume,
-        )
+        val alt = save.version < GameSave.VERSION
+        holder.details.text = if (alt) {
+            holder.itemView.context.getString(R.string.save_details_old, stamp)
+        } else {
+            holder.itemView.context.getString(R.string.save_details, stamp, save.world.orteCount())
+        }
+        // Alte Stände bleiben sichtbar (löschbar), aber erkennbar ausgegraut.
+        holder.itemView.alpha = if (alt) 0.5f else 1f
         holder.itemView.setOnClickListener { onTap(save) }
         holder.itemView.setOnLongClickListener {
             onLongPress(save)

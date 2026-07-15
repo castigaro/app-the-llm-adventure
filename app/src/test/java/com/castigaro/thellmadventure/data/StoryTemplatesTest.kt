@@ -40,9 +40,8 @@ class StoryTemplatesTest {
         assertEquals(0L, neu.playtimeMs)
         assertFalse(neu.finished)
         assertTrue(neu.id != save.id)
-        // Spieler steht auf einer begehbaren Nicht-Tür-Kachel
-        val room = neu.world.room(neu.roomId)!!
-        assertTrue(room.walkable(neu.ptx, neu.pty))
+        // Spieler steht draußen auf einer begehbaren Kachel
+        assertTrue(neu.world.outdoor!!.walkable(neu.ptx, neu.pty))
     }
 
     @Test

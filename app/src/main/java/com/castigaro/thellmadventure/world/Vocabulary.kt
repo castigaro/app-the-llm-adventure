@@ -45,6 +45,29 @@ enum class PropType {
 val PROP_STATES = setOf("offen", "an", "kaputt", "verschlossen")
 
 /**
+ * Geländearten der Außenwelt. [zeichen] ist das Kürzel im Zeilenformat der
+ * KI-Antworten (12 Zeilen à 12 Zeichen); [farbeA]/[farbeB] sind die beiden
+ * Bodentöne des Renderers (Schachbrett-Variation wie bei Raumböden).
+ */
+enum class Terrain(val zeichen: Char, val begehbar: Boolean, val farbeA: Int, val farbeB: Int) {
+    GRAS('g', true, 0xFF3E8E4A.toInt(), 0xFF35803F.toInt()),
+    WEG('w', true, 0xFFB89A64.toInt(), 0xFFAA8C58.toInt()),
+    SAND('s', true, 0xFFE8D2A0.toInt(), 0xFFD8BE88.toInt()),
+    ERDE('e', true, 0xFF8A5A34.toInt(), 0xFF7A4C2A.toInt()),
+    BLUMEN('b', true, 0xFF4A9A56.toInt(), 0xFF3E8E4A.toInt()),
+    WASSER('~', false, 0xFF2E5A8C.toInt(), 0xFF28507C.toInt()),
+    FELS('f', false, 0xFF6E7B8A.toInt(), 0xFF5E6A78.toInt()),
+    ;
+
+    companion object {
+        fun fromZeichen(zeichen: Char?): Terrain? = values().firstOrNull { it.zeichen == zeichen }
+    }
+}
+
+/** Baustile für Gebäude auf der Außenkarte. */
+enum class BuildingStyle { HUETTE, HAUS, TURM, SCHEUNE }
+
+/**
  * Icon-Silhouetten für Gegenstände und Fähigkeiten.
  * Alt-Vokabular: neue Icons wählen ein [IconArchetype]; die Form bleibt nur
  * erhalten, damit gespeicherte Spielstände weiter lesbar sind.
@@ -114,9 +137,10 @@ val SLOT_COLORS = intArrayOf(
 
 /** Grundregeln des Rahmens — was maximal möglich ist. */
 object Limits {
-    const val MAX_RAEUME = 24
-    /** Das Zielobjekt darf frühestens ab so vielen Räumen versteckt werden. */
-    const val ZIEL_MIN_RAEUME = 6
+    /** Soft-Cap über Parzellen UND Innenräume (Wachstums-Hinweis, kein Stopp). */
+    const val MAX_ORTE = 24
+    /** Das Zielobjekt darf frühestens ab so vielen Orten versteckt werden. */
+    const val ZIEL_MIN_ORTE = 6
     const val MIN_RAUM_W = 6
     const val MAX_RAUM_W = 16
     const val MIN_RAUM_H = 4
@@ -127,4 +151,13 @@ object Limits {
     const val MAX_TUEREN = 4
     const val MAX_INVENTAR = 12
     const val MAX_FAKTEN_DIGEST = 20
+
+    // Außenwelt
+    /** Kantenlänge einer Parzelle in Kacheln. */
+    const val PARZELLE = 12
+    const val MAX_GEBAEUDE = 3
+    const val MAX_PROPS_PARZELLE = 14
+    const val MAX_NPCS_PARZELLE = 2
+    /** Mindestanteil begehbarer Kacheln je Parzelle (kein Wasser-Labyrinth). */
+    const val MIN_BEGEHBAR_ANTEIL = 0.55f
 }

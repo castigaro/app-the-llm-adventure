@@ -19,11 +19,12 @@ object GoalChecker {
             GoalType.BESITZE_ITEM ->
                 save.world.items[goal.zielId]?.holder == Item.HOLDER_INVENTORY
             GoalType.ERREICHE_RAUM ->
-                save.roomId == goal.zielId
+                save.roomId == goal.zielId ||
+                    (save.roomId == GameSave.ORT_DRAUSSEN &&
+                        save.world.outdoor?.parcelForTile(save.ptx, save.pty)?.id == goal.zielId)
             GoalType.ZUSTAND_GESETZT -> {
                 val key = goal.zustandKey ?: return false
-                save.world.rooms.values
-                    .asSequence().flatMap { it.props.asSequence() }
+                save.world.allProps()
                     .firstOrNull { it.id == goal.zielId }
                     ?.states?.get(key) == true
             }

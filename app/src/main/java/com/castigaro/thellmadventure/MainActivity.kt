@@ -40,7 +40,11 @@ class MainActivity : AppCompatActivity() {
         binding.saveList.adapter = adapter
 
         binding.buttonContinue.setOnClickListener {
-            SaveStore.newest(this)?.let(::openSave)
+            // „Weiterspielen" nimmt den neuesten LADBAREN Stand (aktuelles Format).
+            SaveStore.getAll(this)
+                .filter { it.version >= GameSave.VERSION }
+                .maxByOrNull { it.updatedAt }
+                ?.let(::openSave)
         }
         binding.buttonNewGame.setOnClickListener { startNewGame() }
 
@@ -73,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     private fun refreshSaves() {
         val saves = SaveStore.getAll(this)
         adapter.submit(saves)
-        binding.buttonContinue.isEnabled = saves.isNotEmpty()
+        binding.buttonContinue.isEnabled = saves.any { it.version >= GameSave.VERSION }
         binding.noSavesHint.visibility = if (saves.isEmpty()) View.VISIBLE else View.GONE
     }
 
@@ -86,6 +90,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openSave(save: GameSave) {
+        if (save.version < GameSave.VERSION) {
+            // Spielstände aus der Zeit vor der Außenkarte sind nicht mehr ladbar.
+            AlertDialog.Builder(this)
+                .setTitle(R.string.save_old_format_title)
+                .setMessage(getString(R.string.save_old_format_message, save.name))
+                .setPositiveButton(R.string.delete) { _, _ ->
+                    SaveStore.delete(this, save)
+                    refreshSaves()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+            return
+        }
         startActivity(
             Intent(this, GameActivity::class.java).putExtra(GameActivity.EXTRA_SAVE_ID, save.id)
         )

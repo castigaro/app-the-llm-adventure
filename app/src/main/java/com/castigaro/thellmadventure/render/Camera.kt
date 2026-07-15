@@ -79,14 +79,18 @@ class Camera {
      * werden zentriert, größere scrollen ohne über den Rand hinauszulaufen.
      */
     fun clampToRoom(roomW: Int, roomH: Int) {
+        clampToBounds(
+            IsoMath.roomMinX(roomH), IsoMath.roomMaxX(roomW),
+            IsoMath.roomMinY(), IsoMath.roomMaxY(roomW, roomH),
+        )
+    }
+
+    /** Klemmt die Kamera an beliebige Weltgrenzen (Außenkarte, Räume). */
+    fun clampToBounds(minWx: Float, maxWx: Float, minWy: Float, maxWy: Float) {
         if (viewW <= 0f || viewH <= 0f || zoom <= 0f) return
         val margin = IsoMath.TILE_H
-        val minX = IsoMath.roomMinX(roomH) - margin
-        val maxX = IsoMath.roomMaxX(roomW) + margin
-        val minY = IsoMath.roomMinY() - margin
-        val maxY = IsoMath.roomMaxY(roomW, roomH) + margin
-        x = clampAxis(x, minX, maxX, viewW / (2f * zoom))
-        y = clampAxis(y, minY, maxY, viewH / (2f * zoom))
+        x = clampAxis(x, minWx - margin, maxWx + margin, viewW / (2f * zoom))
+        y = clampAxis(y, minWy - margin, maxWy + margin, viewH / (2f * zoom))
     }
 
     private fun clampAxis(value: Float, min: Float, max: Float, halfView: Float): Float {

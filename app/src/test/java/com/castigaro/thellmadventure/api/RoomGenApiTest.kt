@@ -4,10 +4,13 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.castigaro.common.llm.ProviderSettings
 import com.castigaro.thellmadventure.data.GameSave
+import com.castigaro.thellmadventure.world.Building
 import com.castigaro.thellmadventure.world.Door
 import com.castigaro.thellmadventure.world.GoalType
 import com.castigaro.thellmadventure.world.Item
 import com.castigaro.thellmadventure.world.Limits
+import com.castigaro.thellmadventure.world.OutdoorMap
+import com.castigaro.thellmadventure.world.Parcel
 import com.castigaro.thellmadventure.world.Room
 import com.castigaro.thellmadventure.world.SecretGoal
 import com.castigaro.thellmadventure.world.Story
@@ -152,7 +155,7 @@ class RoomGenApiTest {
         val world = save.world
         val ziel = hiddenGoal(save)
         // Welt bis kurz vor das Limit füllen → forcePlace greift trotz zielHier=false
-        while (world.rooms.size < Limits.MAX_RAEUME - 2) {
+        while (world.rooms.size < Limits.MAX_ORTE - 2) {
             world.addRoom(Room(world.nextId("r"), "Füllraum", 6, 4))
         }
         server.enqueue(anthropic(validAnswer()))
@@ -185,8 +188,8 @@ class RoomGenApiTest {
         val save = saveWithOrigin()
         val world = save.world
         val ziel = hiddenGoal(save)
-        // Mit dem neuen Raum erreicht die Welt genau die Mindestraumzahl.
-        while (world.rooms.size < Limits.ZIEL_MIN_RAEUME - 1) {
+        // Mit dem neuen Raum erreicht die Welt genau die Mindestortzahl.
+        while (world.rooms.size < Limits.ZIEL_MIN_ORTE - 1) {
             world.addRoom(Room(world.nextId("r"), "Füllraum", 6, 4))
         }
         server.enqueue(anthropic(validAnswer(zielHier = true)))
@@ -196,5 +199,26 @@ class RoomGenApiTest {
 
         assertTrue(ziel.holder.startsWith("prop:"))
         assertTrue(room.props.any { it.itemId == ziel.id })
+    }
+
+    @Test
+    fun `generateInterior erzwingt die Ruecktuer nach draussen`() {
+        val world = WorldState()
+        world.outdoor = OutdoorMap()
+        val parcel = Parcel(world.nextId("g"), 0, 0, "Wiese")
+        world.outdoor!!.addParcel(parcel)
+        val gebaeude = Building(world.nextId("b"), "Kate", tx = 4, ty = 4, w = 2, h = 2)
+        world.outdoor!!.buildings[gebaeude.id] = gebaeude
+        parcel.buildingIds.add(gebaeude.id)
+        val save = GameSave(name = "T", world = world, roomId = GameSave.ORT_DRAUSSEN)
+        server.enqueue(anthropic(validAnswer()))
+
+        val room = RoomGenApi.generateInterior(context, save, gebaeude)
+
+        // Das Gebäude ist verdrahtet, die Südwand führt nach draußen
+        assertEquals(room.id, gebaeude.targetRoomId)
+        val back = room.doors.first { it.wall == Wall.S }
+        assertEquals("welt:${gebaeude.id}", back.targetRoomId)
+        assertTrue(!back.locked)
     }
 }

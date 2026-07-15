@@ -59,7 +59,10 @@ class NewGameActivity : AppCompatActivity() {
             }
         }
         // Eigene, zuvor gesicherte Geschichten als Startvorlagen anbieten.
-        val templates = StoryTemplates.getAll(this)
+        // Vorlagen ohne Außenkarte (altes Format) sind nicht mehr startbar.
+        val templates = StoryTemplates.getAll(this).filter { template ->
+            template.snapshot.optJSONObject("world")?.optJSONObject("outdoor") != null
+        }
         if (templates.isNotEmpty()) {
             addSectionLabel(getString(R.string.newgame_your_stories))
             templates.forEach { template ->
@@ -151,6 +154,12 @@ class NewGameActivity : AppCompatActivity() {
                 )
                 finish()
             }.onFailure { error ->
+                // Grund ins Logcat — Ursache in der Meldung selbst, weil MIUI
+                // den Stacktrace-Anteil von Log.e gelegentlich verschluckt.
+                android.util.Log.e(
+                    "LlmAdventure",
+                    "Story-Synthese fehlgeschlagen: $error / Ursache: ${error.cause}",
+                )
                 val message = (error as? LlmClient.ApiException)?.message
                     ?: getString(R.string.newgame_weave_failed)
                 showRetry(message)

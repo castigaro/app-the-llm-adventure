@@ -69,6 +69,11 @@ class GameEngineTest {
     fun `UnlockDoor entriegelt genau die eine Tuer`() {
         val save = DemoWorld.newSave("Test")
         val raum = save.world.rooms.values.first()
+        raum.doors.add(
+            com.castigaro.thellmadventure.world.Door(
+                Wall.W, 2, locked = true, lockHint = "Klemmt.", label = "Luke",
+            )
+        )
         val zu = raum.doors.first { it.locked }
 
         GameEngine.apply(save, listOf(Effect.UnlockDoor(raum.id, zu.wall, zu.pos)))

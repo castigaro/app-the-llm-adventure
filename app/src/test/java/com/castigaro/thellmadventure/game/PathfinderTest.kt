@@ -74,4 +74,23 @@ class PathfinderTest {
         val walkable = { x: Int, y: Int -> (x to y) !in ring }
         assertNull(Pathfinder.findPathAdjacent(10, 10, walkable, 0 to 0, 4 to 4))
     }
+
+    @Test
+    fun `Pfad laeuft ueber negative globale Koordinaten und Parzellennaht`() {
+        // Zwei 12er-Parzellen nebeneinander: Kacheln −12..−1 und 0..11.
+        val walkable = { _: Int, _: Int -> true }
+        val path = Pathfinder.findPath(-12, 0, 12, 12, walkable, -6 to 5, 6 to 5)
+        assertEquals(12, path.size)
+        assertEquals(6 to 5, path.last())
+        // Die Naht (x = −1 → 0) ist kein Hindernis
+        assertTrue(path.contains(0 to 5))
+    }
+
+    @Test
+    fun `fehlende Parzelle wirkt wie eine Wand`() {
+        // Nur x in 0..11 ist Land; westlich davon ist Nebel (nicht begehbar).
+        val walkable = { x: Int, _: Int -> x in 0 until 12 }
+        val path = Pathfinder.findPath(-12, 0, 12, 12, walkable, 5 to 5, -3 to 5)
+        assertTrue(path.isEmpty())
+    }
 }

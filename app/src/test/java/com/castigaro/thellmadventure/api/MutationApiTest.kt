@@ -80,7 +80,7 @@ class MutationApiTest {
             "fakt:Die Kiste steht offen.",    // fakt: ist immer erlaubt
         )))
 
-        val res = MutationApi.interact(context, save, room, prop, withItem = null)
+        val res = MutationApi.interact(context, save, room.id, prop, withItem = null)
 
         assertTrue(res.erfolg)
         assertEquals(2, res.effekte.size)
@@ -93,11 +93,11 @@ class MutationApiTest {
         val (save, room, prop) = saveWithProp()
         server.enqueue(anthropic(antwort(true, "zustand:${prop.id}.offen=an")))
 
-        val first = MutationApi.interact(context, save, room, prop, withItem = null)
+        val first = MutationApi.interact(context, save, room.id, prop, withItem = null)
         assertFalse(first.gecacht)
         assertEquals(1, server.requestCount)
 
-        val second = MutationApi.interact(context, save, room, prop, withItem = null)
+        val second = MutationApi.interact(context, save, room.id, prop, withItem = null)
         assertTrue(second.gecacht)
         assertTrue(second.erfolg)
         assertTrue(second.effekte.isEmpty()) // manifestierte Effekte nicht erneut anwenden
@@ -110,11 +110,11 @@ class MutationApiTest {
         server.enqueue(anthropic(antwort(false)))
         server.enqueue(anthropic(antwort(false)))
 
-        val first = MutationApi.interact(context, save, room, prop, withItem = null)
+        val first = MutationApi.interact(context, save, room.id, prop, withItem = null)
         assertFalse(first.erfolg)
         assertTrue(save.world.mutationCache.isEmpty())
 
-        MutationApi.interact(context, save, room, prop, withItem = null)
+        MutationApi.interact(context, save, room.id, prop, withItem = null)
         assertEquals(2, server.requestCount)
     }
 
@@ -124,14 +124,14 @@ class MutationApiTest {
         // 404 = nicht-transient, wird also nicht automatisch wiederholt.
         server.enqueue(MockResponse().setResponseCode(404).setBody("""{"error":{"message":"kaputt"}}"""))
 
-        val result = runCatching { MutationApi.interact(context, save, room, prop, withItem = null) }
+        val result = runCatching { MutationApi.interact(context, save, room.id, prop, withItem = null) }
 
         assertTrue(result.isFailure)
         assertTrue(save.world.mutationCache.isEmpty())
 
         // Nach dem Fehler wird die Interaktion regulär erneut beurteilt
         server.enqueue(anthropic(antwort(true)))
-        val retry = MutationApi.interact(context, save, room, prop, withItem = null)
+        val retry = MutationApi.interact(context, save, room.id, prop, withItem = null)
         assertFalse(retry.gecacht)
         assertTrue(retry.erfolg)
         assertEquals(2, server.requestCount)

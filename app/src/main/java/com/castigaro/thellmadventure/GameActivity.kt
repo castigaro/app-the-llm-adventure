@@ -14,6 +14,7 @@ import com.castigaro.thellmadventure.api.CraftApi
 import com.castigaro.thellmadventure.api.DialogApi
 import com.castigaro.thellmadventure.api.LlmClient
 import com.castigaro.thellmadventure.api.MutationApi
+import com.castigaro.thellmadventure.api.ParcelGenApi
 import com.castigaro.thellmadventure.api.RoomGenApi
 import com.castigaro.thellmadventure.audio.MusicDirector
 import com.castigaro.thellmadventure.audio.Sfx
@@ -31,6 +32,7 @@ import com.castigaro.thellmadventure.ui.CraftingController
 import com.castigaro.thellmadventure.ui.InventoryBarAdapter
 import com.castigaro.thellmadventure.ui.InventoryListAdapter
 import com.castigaro.thellmadventure.ui.InventoryRow
+import com.castigaro.thellmadventure.world.Building
 import com.castigaro.thellmadventure.world.DemoWorld
 import com.castigaro.thellmadventure.world.Door
 import com.castigaro.thellmadventure.world.Item
@@ -124,7 +126,11 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             }
         }
 
-        enterRoom(save.roomId, save.ptx to save.pty)
+        if (save.roomId == GameSave.ORT_DRAUSSEN) {
+            enterOutdoor(save.ptx to save.pty)
+        } else {
+            enterRoom(save.roomId, save.ptx to save.pty)
+        }
         refreshInventory()
 
         // Beim allerersten Start die Prämisse erzählen — sie bleibt als
@@ -156,14 +162,19 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
         autosave()
     }
 
-    /** Spielt die Melodie des aktuellen Raums (manifestierte KI-Melodie oder eingebaute). */
+    /** Spielt die Melodie des aktuellen Orts (manifestierte KI-Melodie oder eingebaute). */
     private fun playRoomMusic() {
+        if (save.roomId == GameSave.ORT_DRAUSSEN) {
+            val parcel = save.world.outdoor?.parcelForTile(save.ptx, save.pty) ?: return
+            music.switchTo(parcel.id, parcel.melodyId?.let { save.world.melodies[it] })
+            return
+        }
         val room = save.world.room(save.roomId) ?: return
         val spec = room.melodyId?.let { save.world.melodies[it] }
         music.switchTo(room.id, spec)
     }
 
-    // ---- Raum & Bewegung -----------------------------------------------------
+    // ---- Ort & Bewegung -----------------------------------------------------
 
     private fun enterRoom(roomId: String, tile: Pair<Int, Int>) {
         val room = save.world.room(roomId) ?: return
@@ -175,12 +186,33 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
         playRoomMusic()
     }
 
+    /** Auf die Außenkarte wechseln; [tile] ist eine GLOBALE Kachel. */
+    private fun enterOutdoor(tile: Pair<Int, Int>) {
+        val outdoor = save.world.outdoor ?: return
+        save.roomId = GameSave.ORT_DRAUSSEN
+        save.ptx = tile.first
+        save.pty = tile.second
+        binding.isoView.bindKarte(outdoor, tile)
+        binding.roomLabel.text =
+            outdoor.parcelForTile(tile.first, tile.second)?.name ?: getString(R.string.app_name)
+        playRoomMusic()
+    }
+
     override fun onDoorReached(door: Door) {
         rememberPlayerTile()
         val target = door.targetRoomId
         when {
             door.locked -> comment(door.lockHint ?: getString(R.string.door_locked))
             target == null -> generateRoom(door)
+            target.startsWith(RoomGenApi.WELT_PREFIX) -> {
+                // Tür nach draußen: vor die Gebäudetür auf die Karte treten.
+                val building = save.world.outdoor?.buildings
+                    ?.get(target.removePrefix(RoomGenApi.WELT_PREFIX)) ?: return
+                Sfx.play(this, Sfx.DOOR)
+                enterOutdoor(building.doorTile())
+                comment(getString(R.string.outdoor_entered))
+                autosave()
+            }
             else -> {
                 val targetRoom = save.world.room(target) ?: return
                 val entry = entryTile(targetRoom, from = save.roomId)
@@ -190,6 +222,27 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
                 autosave()
             }
         }
+    }
+
+    override fun onBuildingReached(building: Building) {
+        rememberPlayerTile()
+        val target = building.targetRoomId
+        when {
+            building.locked -> comment(building.lockHint ?: getString(R.string.building_locked))
+            target == null -> generateInterior(building)
+            else -> {
+                val targetRoom = save.world.room(target) ?: return
+                val entry = entryTile(targetRoom, from = "${RoomGenApi.WELT_PREFIX}${building.id}")
+                Sfx.play(this, Sfx.DOOR)
+                enterRoom(target, entry)
+                comment(getString(R.string.room_entered, targetRoom.name))
+                autosave()
+            }
+        }
+    }
+
+    override fun onFrontierReached(gx: Int, gy: Int) {
+        generateParcel(gx, gy)
     }
 
     /** Unentdeckte Tür → Raum von der KI erzeugen lassen (mit Lade-Overlay). */
@@ -208,22 +261,89 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
                 val entry = entryTile(room, from = origin.id)
                 Sfx.play(this@GameActivity, Sfx.DOOR)
                 enterRoom(room.id, entry)
-                if (!save.growthHintShown && save.world.rooms.size >= Limits.MAX_RAEUME) {
-                    // Kein Hard-Cap: einmal pro Spielstand darauf hinweisen,
-                    // dass weitere Räume die KI-Anfragen wachsen lassen.
-                    save.growthHintShown = true
-                    comment(getString(R.string.world_growth_hint))
-                } else {
-                    comment(getString(R.string.room_entered, room.name))
-                }
+                commentNewPlace(room.name)
                 autosave()
             }.onFailure { error ->
+                logGenError("Raum-Generierung", error)
                 // Kein Offline-Inhalt: Tür „klemmt" und bleibt erneut versuchbar.
                 comment(getString(R.string.door_stuck))
                 (error as? LlmClient.ApiException)?.message?.let {
                     android.widget.Toast.makeText(this@GameActivity, it, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    /** Gebäude mit unentdecktem Inneren → Innenraum von der KI erzeugen lassen. */
+    private fun generateInterior(building: Building) {
+        if (busy) return
+        setLoading(true, getString(R.string.room_generating))
+        lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    RoomGenApi.generateInterior(this@GameActivity, save, building)
+                }
+            }
+            setLoading(false, "")
+            result.onSuccess { room ->
+                val entry = entryTile(room, from = "${RoomGenApi.WELT_PREFIX}${building.id}")
+                Sfx.play(this@GameActivity, Sfx.DOOR)
+                enterRoom(room.id, entry)
+                commentNewPlace(room.name)
+                autosave()
+            }.onFailure { error ->
+                logGenError("Innenraum-Generierung", error)
+                comment(getString(R.string.door_stuck))
+                (error as? LlmClient.ApiException)?.message?.let {
+                    android.widget.Toast.makeText(this@GameActivity, it, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /** Ursache ins Logcat — MIUI verschluckt Stacktraces von Log.e gern. */
+    private fun logGenError(wo: String, error: Throwable) {
+        android.util.Log.e("LlmAdventure", "$wo fehlgeschlagen: $error / Ursache: ${error.cause}")
+    }
+
+    /** Nebelrand → Nachbarparzelle von der KI erzeugen lassen. */
+    private fun generateParcel(gx: Int, gy: Int) {
+        if (busy) return
+        if (save.world.outdoor?.parcelAt(gx, gy) != null) return
+        setLoading(true, getString(R.string.land_forming))
+        lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    ParcelGenApi.generate(this@GameActivity, save, gx, gy)
+                }
+            }
+            setLoading(false, "")
+            result.onSuccess { parcel ->
+                // Kein Ortswechsel: der Nebel weicht, die Karte wächst weiter.
+                binding.roomLabel.text =
+                    save.world.outdoor?.parcelForTile(save.ptx, save.pty)?.name ?: parcel.name
+                commentNewPlace(parcel.name)
+                autosave()
+            }.onFailure { error ->
+                logGenError("Parzellen-Generierung", error)
+                // Kein Offline-Inhalt: der Nebel „weicht nicht" — erneut versuchbar.
+                comment(getString(R.string.fog_stays))
+                (error as? LlmClient.ApiException)?.message?.let {
+                    android.widget.Toast.makeText(this@GameActivity, it, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /** Meldung nach neu erschaffenem Ort — mit einmaligem Wachstums-Hinweis. */
+    private fun commentNewPlace(name: String) {
+        if (!save.growthHintShown && save.world.orteCount() >= Limits.MAX_ORTE) {
+            // Kein Hard-Cap: einmal pro Spielstand darauf hinweisen,
+            // dass weitere Orte die KI-Anfragen wachsen lassen.
+            save.growthHintShown = true
+            comment(getString(R.string.world_growth_hint))
+        } else {
+            comment(getString(R.string.room_entered, name))
         }
     }
 
@@ -274,13 +394,12 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
 
     private fun runMutation(prop: Prop, withItem: Item?) {
         if (busy) return
-        val room = save.world.room(save.roomId) ?: return
         // Cache-Treffer laufen sofort und offline (keine Effekte mehr).
         setLoading(true, getString(R.string.room_generating))
         lifecycleScope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    MutationApi.interact(this@GameActivity, save, room, prop, withItem)
+                    MutationApi.interact(this@GameActivity, save, save.roomId, prop, withItem)
                 }
             }
             setLoading(false, "")
@@ -318,6 +437,15 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
         val (tx, ty) = binding.isoView.playerTile()
         save.ptx = tx
         save.pty = ty
+        // Draußen: Gebietsname und Musik folgen der aktuellen Parzelle.
+        if (save.roomId == GameSave.ORT_DRAUSSEN) {
+            save.world.outdoor?.parcelForTile(tx, ty)?.let { parcel ->
+                if (binding.roomLabel.text != parcel.name) {
+                    binding.roomLabel.text = parcel.name
+                    playRoomMusic()
+                }
+            }
+        }
     }
 
     // ---- Inventar --------------------------------------------------------------
@@ -583,7 +711,7 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             R.string.ending_message,
             world.story?.titel.orEmpty(),
             ziel,
-            world.rooms.size,
+            world.orteCount(),
             minuten,
         )
         speaker.speak(this, getString(R.string.ending_title))

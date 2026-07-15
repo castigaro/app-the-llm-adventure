@@ -32,6 +32,10 @@ class DialogMessage(
  * Aussehen, Gesprächsverläufe und Metadaten. Anders als bei Kap-Krakenzahn
  * gibt es keinen Seed — die von der KI erschaffene Welt selbst wird
  * gespeichert, denn sie ist aus nichts rekonstruierbar.
+ *
+ * [roomId] == [ORT_DRAUSSEN] bedeutet: der Spieler steht auf der Außenkarte,
+ * [ptx]/[pty] sind dann GLOBALE Kartenkacheln. In Innenräumen sind es wie
+ * bisher lokale Raumkacheln.
  */
 class GameSave(
     val id: String = UUID.randomUUID().toString(),
@@ -48,6 +52,8 @@ class GameSave(
     var finished: Boolean = false,
     // Einmaliger Hinweis, sobald die Welt groß wird (Anfragen wachsen mit).
     var growthHintShown: Boolean = false,
+    /** Spielstands-Format; Stände < [VERSION] sind aus der Zeit vor der Außenwelt. */
+    var version: Int = VERSION,
 ) {
 
     fun historyFor(npcId: String): MutableList<DialogMessage> =
@@ -70,6 +76,7 @@ class GameSave(
             dialogHistories = copy.dialogHistories,
             finished = copy.finished,
             growthHintShown = copy.growthHintShown,
+            version = copy.version,
         )
     }
 
@@ -91,9 +98,16 @@ class GameSave(
         })
         put("finished", finished)
         put("growthHintShown", growthHintShown)
+        put("version", version)
     }
 
     companion object {
+        /** Aktuelles Format. 1 = nur Räume (vor der Außenwelt), 2 = Außenkarte. */
+        const val VERSION = 2
+
+        /** roomId-Wert, wenn der Spieler auf der Außenkarte steht. */
+        const val ORT_DRAUSSEN = "draussen"
+
         fun fromJson(json: JSONObject): GameSave {
             val save = GameSave(
                 id = json.optString("id", UUID.randomUUID().toString()),
@@ -108,6 +122,8 @@ class GameSave(
                 playerLook = Look.fromJson(json.optJSONObject("playerLook")),
                 finished = json.optBoolean("finished", false),
                 growthHintShown = json.optBoolean("growthHintShown", false),
+                // Fehlende Version = Spielstand aus der Zeit vor der Außenwelt.
+                version = json.optInt("version", 1),
             )
             json.optJSONObject("dialogHistories")?.let { obj ->
                 obj.keys().forEach { npcId ->

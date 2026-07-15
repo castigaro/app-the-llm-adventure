@@ -102,6 +102,9 @@ object LlmClient {
         repeat(MAX_TRANSIENT_ATTEMPTS) { attempt ->
             try {
                 return request(context, config, systemPrompt, turns, maxTokens, schema)
+            } catch (e: java.net.UnknownHostException) {
+                // Offline/DNS: sofort klar melden statt generisch zu scheitern.
+                throw ApiException("Keine Internetverbindung — der KI-Dienst ist nicht erreichbar.")
             } catch (e: ApiException) {
                 if (!e.transient) throw e
                 lastError = e
@@ -185,6 +188,10 @@ object LlmClient {
             }
             if (json.optString("stop_reason") == "refusal") {
                 throw ApiException("Die Anfrage wurde vom Modell abgelehnt.")
+            }
+            if (json.optString("stop_reason") == "max_tokens") {
+                // Abgeschnittenes JSON wäre unbrauchbar und der Fehler sonst kryptisch.
+                throw ApiException("Antwort abgeschnitten (Token-Limit erreicht).")
             }
             val contentArr = json.getJSONArray("content")
             for (i in 0 until contentArr.length()) {

@@ -3,8 +3,13 @@ package com.castigaro.thellmadventure.game
 import java.util.ArrayDeque
 
 /**
- * Breitensuche auf dem Kachelgitter eines Raums. Bewusst simpel gehalten:
- * Räume sind maximal 16×12 Kacheln groß (siehe Limits), da braucht es kein A*.
+ * Breitensuche auf einem Kachelgitter. Bewusst simpel gehalten: Räume sind
+ * maximal 16×12 Kacheln, die Außenkarte maximal ~24 Parzellen à 12×12 —
+ * das sind wenige tausend Kacheln, da braucht es kein A*.
+ *
+ * Für die Außenkarte gibt es die Varianten mit expliziten Grenzen
+ * [minX, minY, maxXExkl, maxYExkl] — dort sind Kachelkoordinaten global
+ * und können negativ sein. Die (w, h)-Signaturen delegieren mit (0, 0).
  */
 object Pathfinder {
 
@@ -18,9 +23,16 @@ object Pathfinder {
         walkable: (Int, Int) -> Boolean,
         start: Pair<Int, Int>,
         target: Pair<Int, Int>,
+    ): List<Pair<Int, Int>> = findPath(0, 0, w, h, walkable, start, target)
+
+    fun findPath(
+        minX: Int, minY: Int, maxXExkl: Int, maxYExkl: Int,
+        walkable: (Int, Int) -> Boolean,
+        start: Pair<Int, Int>,
+        target: Pair<Int, Int>,
     ): List<Pair<Int, Int>> {
         if (start == target) return emptyList()
-        if (target.first !in 0 until w || target.second !in 0 until h) return emptyList()
+        if (target.first !in minX until maxXExkl || target.second !in minY until maxYExkl) return emptyList()
         if (!walkable(target.first, target.second)) return emptyList()
 
         val prev = HashMap<Pair<Int, Int>, Pair<Int, Int>>()
@@ -34,7 +46,7 @@ object Pathfinder {
             if (cur == target) break
             for ((dx, dy) in NEIGHBORS) {
                 val next = cur.first + dx to cur.second + dy
-                if (next.first !in 0 until w || next.second !in 0 until h) continue
+                if (next.first !in minX until maxXExkl || next.second !in minY until maxYExkl) continue
                 if (next in seen || !walkable(next.first, next.second)) continue
                 seen.add(next)
                 prev[next] = cur
@@ -63,14 +75,26 @@ object Pathfinder {
         walkable: (Int, Int) -> Boolean,
         start: Pair<Int, Int>,
         target: Pair<Int, Int>,
+    ): List<Pair<Int, Int>>? = findPathAdjacent(0, 0, w, h, walkable, start, target)
+
+    fun findPathAdjacent(
+        minX: Int, minY: Int, maxXExkl: Int, maxYExkl: Int,
+        walkable: (Int, Int) -> Boolean,
+        start: Pair<Int, Int>,
+        target: Pair<Int, Int>,
     ): List<Pair<Int, Int>>? {
         val candidates = NEIGHBORS
             .map { (dx, dy) -> target.first + dx to target.second + dy }
-            .filter { it.first in 0 until w && it.second in 0 until h && walkable(it.first, it.second) }
+            .filter {
+                it.first in minX until maxXExkl && it.second in minY until maxYExkl &&
+                    walkable(it.first, it.second)
+            }
         if (candidates.isEmpty()) return null
         if (start in candidates) return emptyList()
         return candidates
-            .mapNotNull { cand -> findPath(w, h, walkable, start, cand).takeIf { it.isNotEmpty() } }
+            .mapNotNull { cand ->
+                findPath(minX, minY, maxXExkl, maxYExkl, walkable, start, cand).takeIf { it.isNotEmpty() }
+            }
             .minByOrNull { it.size }
     }
 

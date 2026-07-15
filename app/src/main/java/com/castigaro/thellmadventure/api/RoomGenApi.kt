@@ -4,6 +4,7 @@ import android.content.Context
 import com.castigaro.thellmadventure.data.GameSave
 import com.castigaro.thellmadventure.game.StateDigest
 import com.castigaro.thellmadventure.gen.ContentValidator
+import com.castigaro.thellmadventure.world.Building
 import com.castigaro.thellmadventure.world.Door
 import com.castigaro.thellmadventure.world.Frame
 import com.castigaro.thellmadventure.world.Item
@@ -25,15 +26,61 @@ object RoomGenApi {
 
     /** Ergebnis: der neue Raum (bereits manifestiert und verdrahtet). */
     fun generate(context: Context, save: GameSave, originRoom: Room, door: Door): Room {
+        val user = buildString {
+            appendLine(
+                "Der Spieler durchschreitet die Tür „${door.label}“ (Wand ${door.wall.name}) " +
+                    "von ${originRoom.id} ${originRoom.name}."
+            )
+            appendLine("Erfinde den Raum dahinter (raum). Mindestens eine weitere Tür darf ins Ungewisse führen.")
+        }
+        return request(context, save, user) { json, goalItem, forcePlace ->
+            build(json, save, origin = originRoom to door, outside = null, goalItem, forcePlace).also {
+                door.targetRoomId = it.id
+                save.world.addFact("${it.id} ${it.name} entdeckt hinter ${originRoom.id}.${door.wall.name}")
+            }
+        }
+    }
+
+    /**
+     * Innenraum eines Gebäudes der Außenkarte: Die Rücktür nach draußen wird
+     * auf der Südwand erzwungen (Ziel `welt:<gebaeudeId>`); tiefere Türen
+     * führen wie gewohnt in weitere, frisch generierte Räume.
+     */
+    fun generateInterior(context: Context, save: GameSave, building: Building): Room {
+        val user = buildString {
+            appendLine(
+                "Der Spieler betritt das Gebäude „${building.name}“ " +
+                    "(${building.stil.name.lowercase()}, ${building.w}×${building.h} Grundriss) von draußen."
+            )
+            appendLine(
+                "Erfinde den Innenraum (raum), passend zum Äußeren. Die Tür nach draußen liegt an der " +
+                    "Südwand und existiert bereits — weitere Türen dürfen ins Ungewisse führen."
+            )
+        }
+        return request(context, save, user) { json, goalItem, forcePlace ->
+            build(json, save, origin = null, outside = building, goalItem, forcePlace).also {
+                building.targetRoomId = it.id
+                save.world.addFact("${it.id} ${it.name} — das Innere von ${building.id} (${building.name})")
+            }
+        }
+    }
+
+    /** Gemeinsamer Ablauf: Prompt bauen, ein Versuch, ein Retry mit Feedback. */
+    private fun request(
+        context: Context,
+        save: GameSave,
+        userIntro: String,
+        buildFrom: (JSONObject, Item?, Boolean) -> Room,
+    ): Room {
         val world = save.world
         val goalItem = world.story?.geheimesZiel?.zielId?.let { world.items[it] }
         val goalUnplaced = goalItem?.holder == StorySynthApi.HOLDER_HIDDEN
-        val forcePlace = goalUnplaced && world.rooms.size >= Limits.MAX_RAEUME - 2
+        val forcePlace = goalUnplaced && world.orteCount() >= Limits.MAX_ORTE - 2
 
         val system = buildString {
             appendLine(
                 "Du bist der Spielleiter eines deutschsprachigen, prozeduralen Adventures. " +
-                    "Der Spieler öffnet eine Tür in unentdecktes Gebiet; du erfindest den Raum dahinter — " +
+                    "Der Spieler betritt unentdecktes Gebiet; du erfindest den Raum dahinter — " +
                     "passend zur Story, im Ton der Welt, mit Verweisen auf Bestehendes wo sinnvoll. " +
                     "Antworte NUR mit einem JSON-Objekt nach dem vereinbarten Schema."
             )
@@ -42,13 +89,9 @@ object RoomGenApi {
             appendLine(StateDigest.build(save))
         }
         val user = buildString {
-            appendLine(
-                "Der Spieler durchschreitet die Tür „${door.label}“ (Wand ${door.wall.name}) " +
-                    "von ${originRoom.id} ${originRoom.name}."
-            )
-            appendLine("Erfinde den Raum dahinter (raum). Mindestens eine weitere Tür darf ins Ungewisse führen.")
+            append(userIntro)
             appendLine("fakt: EIN knapper Satz, was dieser Raum zur Geschichte beiträgt.")
-            if (goalUnplaced && world.rooms.size + 1 >= Limits.ZIEL_MIN_RAEUME) {
+            if (goalUnplaced && world.orteCount() + 1 >= Limits.ZIEL_MIN_ORTE) {
                 appendLine(
                     "Das geheime Zielobjekt ${goalItem!!.id} (${goalItem.name}) ist noch nicht versteckt. " +
                         if (forcePlace) "Verstecke es JETZT hier: setze zielHier auf true."
@@ -56,16 +99,16 @@ object RoomGenApi {
                 )
             } else {
                 // Auch solange die Welt zu klein ist: Das Ziel bleibt verborgen,
-                // damit das Abenteuer nicht nach zwei Räumen endet.
+                // damit das Abenteuer nicht nach zwei Orten endet.
                 appendLine("zielHier: immer false.")
             }
             append("musikNeu: optional eine kurze, sanfte Melodie für diesen Raum (oder null).")
         }
 
         val turns = listOf(LlmClient.Turn(LlmClient.Turn.ROLE_USER, user))
-        val raw = LlmClient.chat(context, system, turns, maxTokens = 2048, schema = Schemas.raumGenerierung())
+        val raw = LlmClient.chat(context, system, turns, maxTokens = 4096, schema = Schemas.raumGenerierung())
         return try {
-            build(LlmClient.extractJson(raw), save, originRoom, door, goalItem, forcePlace)
+            buildFrom(LlmClient.extractJson(raw), goalItem, forcePlace)
         } catch (e: Exception) {
             if (e is LlmClient.ApiException && !e.message.orEmpty().startsWith("Antwort nicht lesbar")) throw e
             val retryTurns = turns +
@@ -74,16 +117,16 @@ object RoomGenApi {
                     LlmClient.Turn.ROLE_USER,
                     "Deine Antwort war ungültig (${e.message}). Antworte erneut, exakt nach Schema, nur JSON.",
                 )
-            val raw2 = LlmClient.chat(context, system, retryTurns, maxTokens = 2048, schema = Schemas.raumGenerierung())
-            build(LlmClient.extractJson(raw2), save, originRoom, door, goalItem, forcePlace)
+            val raw2 = LlmClient.chat(context, system, retryTurns, maxTokens = 4096, schema = Schemas.raumGenerierung())
+            buildFrom(LlmClient.extractJson(raw2), goalItem, forcePlace)
         }
     }
 
     private fun build(
         json: JSONObject,
         save: GameSave,
-        originRoom: Room,
-        door: Door,
+        origin: Pair<Room, Door>?,
+        outside: Building?,
         goalItem: Item?,
         forcePlace: Boolean,
     ): Room {
@@ -91,15 +134,18 @@ object RoomGenApi {
         val raumJson = json.optJSONObject("raum")
             ?: throw ContentValidator.ValidationException("Feld 'raum' fehlt")
 
-        val room = ContentValidator.buildRoom(raumJson, world, origin = originRoom to door)
+        val room = ContentValidator.buildRoom(
+            raumJson, world,
+            origin = origin,
+            outsideId = outside?.let { "$WELT_PREFIX${it.id}" },
+        )
         world.addRoom(room)
-        door.targetRoomId = room.id
 
         // Zielobjekt verstecken, wenn gewünscht oder erzwungen. Harter Guard
-        // gegen ein zu frühes Spielende: Vor ZIEL_MIN_RAEUME Räumen wird ein
+        // gegen ein zu frühes Spielende: Vor ZIEL_MIN_ORTE Orten wird ein
         // zielHier der KI ignoriert (die Prompt-Bitte allein reicht nicht).
         val zielHierErlaubt =
-            json.optBoolean("zielHier", false) && world.rooms.size >= Limits.ZIEL_MIN_RAEUME
+            json.optBoolean("zielHier", false) && world.orteCount() >= Limits.ZIEL_MIN_ORTE
         if (goalItem != null && goalItem.holder == StorySynthApi.HOLDER_HIDDEN &&
             (zielHierErlaubt || forcePlace)
         ) {
@@ -115,7 +161,6 @@ object RoomGenApi {
         }
 
         json.optString("fakt").takeIf { it.isNotBlank() }?.let { world.addFact(it.take(140)) }
-        world.addFact("${room.id} ${room.name} entdeckt hinter ${originRoom.id}.${door.wall.name}")
         return room
     }
 
@@ -152,7 +197,10 @@ object RoomGenApi {
         return prop
     }
 
-    private val CONTAINER_TYPES = setOf(
+    /** Präfix eines Tür-Ziels, das nach draußen führt: `welt:<gebaeudeId>`. */
+    const val WELT_PREFIX = "welt:"
+
+    internal val CONTAINER_TYPES = setOf(
         PropType.KISTE, PropType.TRUHE, PropType.FASS, PropType.REGAL,
         PropType.KESSEL, PropType.ALTAR, PropType.BRUNNEN,
     )

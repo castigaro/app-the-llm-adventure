@@ -7,7 +7,6 @@ import com.castigaro.thellmadventure.game.StateDigest
 import com.castigaro.thellmadventure.gen.WhitelistCatalog
 import com.castigaro.thellmadventure.world.Item
 import com.castigaro.thellmadventure.world.Prop
-import com.castigaro.thellmadventure.world.Room
 import org.json.JSONObject
 
 /**
@@ -29,17 +28,18 @@ object MutationApi {
     private fun cacheKey(prop: Prop, withItem: Item?): String = "${prop.id}|${withItem?.id ?: "-"}"
 
     /**
-     * Führt die Interaktion aus. Cache-Treffer → sofortiges Ergebnis ohne
-     * Effekte (die manifestierten schon). Sonst ein KI-Aufruf; das Ergebnis
-     * wird gecacht.
+     * Führt die Interaktion aus. [ortId] ist der Ort der Requisite (Raum-Id
+     * oder [com.castigaro.thellmadventure.data.GameSave.ORT_DRAUSSEN]).
+     * Cache-Treffer → sofortiges Ergebnis ohne Effekte (die manifestierten
+     * schon). Sonst ein KI-Aufruf; das Ergebnis wird gecacht.
      */
-    fun interact(context: Context, save: GameSave, room: Room, prop: Prop, withItem: Item?): Result {
+    fun interact(context: Context, save: GameSave, ortId: String, prop: Prop, withItem: Item?): Result {
         val key = cacheKey(prop, withItem)
         save.world.mutationCache[key]?.let { cached ->
             return Result(cached, erfolg = true, effekte = emptyList(), gecacht = true)
         }
 
-        val erlaubt = WhitelistCatalog.forMutation(save, room, prop, withItem)
+        val erlaubt = WhitelistCatalog.forMutation(save, ortId, prop, withItem)
         val system = buildString {
             appendLine(
                 "Du bist der Spielleiter eines deutschsprachigen Adventures und beurteilst EINE " +

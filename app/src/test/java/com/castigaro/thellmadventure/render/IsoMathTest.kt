@@ -69,4 +69,45 @@ class IsoMathTest {
             }
         }
     }
+
+    @Test
+    fun `Bereichsgrenzen umschliessen auch negative Kacheln`() {
+        val minTx = -12
+        val minTy = -12
+        val maxTx = 12
+        val maxTy = 12
+        for (tx in minTx until maxTx) {
+            for (ty in minTy until maxTy) {
+                val wx = IsoMath.tileCenterX(tx, ty)
+                val wy = IsoMath.tileCenterY(tx, ty)
+                assertTrue(wx >= IsoMath.boundsMinX(minTx, maxTy))
+                assertTrue(wx <= IsoMath.boundsMaxX(maxTx, minTy))
+                assertTrue(wy >= IsoMath.boundsMinY(minTx, minTy))
+                assertTrue(wy <= IsoMath.boundsMaxY(maxTx, maxTy))
+            }
+        }
+    }
+
+    @Test
+    fun `visibleTileRange umschliesst alle Kacheln im Kamera-Ausschnitt`() {
+        // Ausschnitt um den Ursprung, inklusive negativer Kacheln
+        val range = IsoMath.visibleTileRange(-500f, -300f, 500f, 300f)
+        for (tx in -4..4) {
+            for (ty in -4..4) {
+                val wx = IsoMath.tileCenterX(tx, ty)
+                val wy = IsoMath.tileCenterY(tx, ty)
+                if (wx in -500f..500f && wy in -300f..300f) {
+                    assertTrue("($tx,$ty) muss im Bereich liegen", tx in range[0] until range[2])
+                    assertTrue("($tx,$ty) muss im Bereich liegen", ty in range[1] until range[3])
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `pickTileUnbounded liefert auch negative Kacheln`() {
+        val wx = IsoMath.tileCenterX(-7, 3)
+        val wy = IsoMath.tileCenterY(-7, 3)
+        assertEquals(-7 to 3, IsoMath.pickTileUnbounded(wx, wy))
+    }
 }

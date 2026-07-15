@@ -20,26 +20,31 @@ class StateDigestTest {
     }
 
     @Test
-    fun `Digest enthaelt Rahmen Story Raeume Inventar und Spieler`() {
+    fun `Digest enthaelt Rahmen Story Gebiet Raeume Inventar und Spieler`() {
         val digest = StateDigest.build(testSave())
 
         assertTrue(digest.contains("RAHMEN: Requisiten/Farben/Icons nur aus dem Katalog"))
         assertTrue(digest.contains("STORY „Das Echo der Halle“"))
         assertTrue(digest.contains("GEHEIMES ZIEL: besitze_item i1"))
+        assertTrue(digest.contains("GEBIET"))
+        assertTrue(digest.contains("g1 Sturmwiese (0,0) moos"))
+        // Der Innenraum hinter dem Gebäude der aktuellen Parzelle ist detailliert
         assertTrue(digest.contains("RÄUME:"))
-        assertTrue(digest.contains("r1 Verlassene Halle 14x10 stahl"))
+        assertTrue(digest.contains("r1 Stube der Kate 8x6 rost"))
         assertTrue(digest.contains("INVENTAR: leer"))
-        assertTrue(digest.contains("SPIELER: r1 Kachel(2,4)"))
+        assertTrue(digest.contains("SPIELER: draußen in g1 Sturmwiese, Kachel(5,6)"))
     }
 
     @Test
-    fun `Raumzeile zeigt Tueren mit Ziel Schloss und Unentdecktem`() {
+    fun `Parzellenzeile zeigt Gebaeude mit Ziel und Unentdecktem`() {
         val digest = StateDigest.build(testSave())
 
-        // Unentdeckte Tür → "?", verschlossene mit Hinweis, bekannte mit Ziel
-        assertTrue(digest.contains("N→?"))
-        assertTrue(digest.contains("O:zu(\"Der Kartenleser blinkt rot.\")→?"))
-        assertTrue(digest.contains("S→r2"))
+        // Kate mit fertigem Innenraum, Turm noch unentdeckt ("?")
+        assertTrue(digest.contains("b1 Alte Kate→r1"))
+        assertTrue(digest.contains("b2 Verfallener Turm→?"))
+        // Die Rücktür der Stube führt nach draußen, die Kellerluke ins Ungewisse
+        assertTrue(digest.contains("S→welt:b1"))
+        assertTrue(digest.contains("O→?"))
     }
 
     @Test
@@ -79,16 +84,15 @@ class StateDigestTest {
     @Test
     fun `entfernte Raeume erscheinen nur namentlich`() {
         val save = testSave()
-        // Spieler in r2 verschieben: r1 ist angrenzend (Tür), also detailliert;
-        // ein künstlicher dritter Raum ohne Verbindung bleibt namentlich.
-        val r3 = com.castigaro.thellmadventure.world.Room(
+        // Ein Raum ohne Verbindung zur aktuellen Parzelle bleibt namentlich.
+        val fern = com.castigaro.thellmadventure.world.Room(
             id = save.world.nextId("r"), name = "Fernes Lager", w = 6, h = 4,
         )
-        save.world.addRoom(r3)
+        save.world.addRoom(fern)
 
         val digest = StateDigest.build(save)
-        assertTrue(digest.contains("(weitere: r3 Fernes Lager)"))
-        assertFalse(digest.contains("r3 Fernes Lager 6x4"))
+        assertTrue(digest.contains("(weitere: ${fern.id} Fernes Lager)"))
+        assertFalse(digest.contains("${fern.id} Fernes Lager 6x4"))
     }
 
     @Test

@@ -1,12 +1,10 @@
 package com.castigaro.thellmadventure.api
 
 import com.castigaro.thellmadventure.world.BodyShape
+import com.castigaro.thellmadventure.world.BuildingStyle
 import com.castigaro.thellmadventure.world.Chord
 import com.castigaro.thellmadventure.world.Headgear
-import com.castigaro.thellmadventure.world.IconArchetype
-import com.castigaro.thellmadventure.world.IconMaterial
 import com.castigaro.thellmadventure.world.Palette
-import com.castigaro.thellmadventure.world.PropType
 import com.castigaro.thellmadventure.world.Timbre
 import com.castigaro.thellmadventure.world.Wall
 import org.json.JSONArray
@@ -54,9 +52,14 @@ object Schemas {
 
     // ---- Inhalts-Schemas -----------------------------------------------------
 
+    // Große Enums (IconArchetype 28, IconMaterial 8, PropType 30) stehen im
+    // Schema als freie Strings: Die Anthropic-API lehnt zu große kompilierte
+    // Grammatiken mit HTTP 400 ab („compiled grammar is too large"). Die
+    // erlaubten Werte listet der Katalogtext im Prompt; erzwungen werden sie
+    // ohnehin vom ContentValidator (unbekannt → verworfen/abgeleitet).
     private fun icon(): JSONObject = obj(
-        "motiv" to enumOf<IconArchetype>(),
-        "material" to enumOf<IconMaterial>(),
+        "motiv" to str(),
+        "material" to str(),
         "farbe" to int(),
         "leuchtet" to bool(),
         "abgenutzt" to bool(),
@@ -83,7 +86,7 @@ object Schemas {
     )
 
     private fun requisite(): JSONObject = obj(
-        "typ" to enumOf<PropType>(),
+        "typ" to str(), // PropType — als String, siehe Kommentar bei icon()
         "tx" to int(),
         "ty" to int(),
         "name" to str(),
@@ -120,6 +123,28 @@ object Schemas {
         "figuren" to arr(figur()),
     )
 
+    private fun gebaeude(): JSONObject = obj(
+        "name" to str(),
+        "tx" to int(),
+        "ty" to int(),
+        "breite" to int(),
+        "tiefe" to int(),
+        "stil" to enumOf<BuildingStyle>(),
+        "farbe" to int(),
+        "verschlossen" to bool(),
+        "hinweis" to nullable(str()),
+    )
+
+    /** Eine 12×12-Außenparzelle; gelaende = 12 Zeilen à 12 Geländezeichen. */
+    fun parzelle(): JSONObject = obj(
+        "name" to str(),
+        "palette" to enumOf<Palette>(),
+        "gelaende" to arr(str()),
+        "gebaeude" to arr(gebaeude()),
+        "requisiten" to arr(requisite()),
+        "figuren" to arr(figur()),
+    )
+
     fun melodie(): JSONObject = obj(
         "tempo" to int(),
         "klang" to enumOf<Timbre>(),
@@ -137,12 +162,20 @@ object Schemas {
         "zielUmschreibung" to str(),
         "spielerAussehen" to aussehen(),
         "startInventar" to arr(item()),
-        "startraum" to raum(),
+        "startgebiet" to parzelle(),
     )
 
     /** Antwort der Raum-Generierung beim Türdurchgang. */
     fun raumGenerierung(): JSONObject = obj(
         "raum" to raum(),
+        "fakt" to str(),
+        "zielHier" to bool(),
+        "musikNeu" to nullable(melodie()),
+    )
+
+    /** Antwort der Parzellen-Generierung beim Aufdecken eines Nebelrands. */
+    fun parzellenGenerierung(): JSONObject = obj(
+        "parzelle" to parzelle(),
         "fakt" to str(),
         "zielHier" to bool(),
         "musikNeu" to nullable(melodie()),

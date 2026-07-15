@@ -66,17 +66,24 @@ class StorySynthApiTest {
             put("beschreibung", "Ehrlich.")
             put("icon", JSONObject().put("motiv", "werkzeug").put("material", "eisen").put("farbe", 7).put("leuchtet", false).put("abgenutzt", false))
         }))
-        put("startraum", JSONObject().apply {
-            put("name", "Maschinenraum")
-            put("breite", 8); put("hoehe", 6); put("palette", "stahl")
-            put("tueren", JSONArray().put(JSONObject().put("wand", "n").put("pos", 4).put("verschlossen", false).put("name", "Schleuse")))
+        put("startgebiet", JSONObject().apply {
+            put("name", "Mondsenke")
+            put("palette", "eis")
+            put("gelaende", JSONArray().apply {
+                repeat(12) { put("gggggggggggg") }
+            })
+            put("gebaeude", JSONArray().put(JSONObject().apply {
+                put("name", "Basisstation"); put("tx", 4); put("ty", 4)
+                put("breite", 3); put("tiefe", 2); put("stil", "haus"); put("farbe", 7)
+                put("verschlossen", false); put("hinweis", JSONObject.NULL)
+            }))
             put("requisiten", JSONArray().put(JSONObject().put("typ", "terminal").put("tx", 2).put("ty", 1).put("name", "Terminal").put("farbe", 7).put("blockiert", true)))
             put("figuren", JSONArray())
         })
     }.toString()
 
     @Test
-    fun `Synthese baut Story mit geheimem Ziel Startraum und Inventar`() {
+    fun `Synthese baut Story mit geheimem Ziel Startgebiet und Inventar`() {
         server.enqueue(anthropic(validStory()))
 
         val save = StorySynthApi.synthesize(context, Frame.baseStory("mondstation"), listOf("praktisch", "still"))
@@ -84,16 +91,36 @@ class StorySynthApiTest {
         assertEquals("Das Echo der Station", save.name)
         assertEquals("Das Echo der Station", save.world.story?.titel)
         assertEquals(GoalType.BESITZE_ITEM, save.world.story?.geheimesZiel?.typ)
-        // Startraum vorhanden, mit mindestens einer unentdeckten Tür
-        val raum = save.world.room(save.roomId)!!
-        assertTrue(raum.doors.any { it.targetRoomId == null })
+        // Spieler startet draußen auf der Startparzelle
+        assertEquals(com.castigaro.thellmadventure.data.GameSave.ORT_DRAUSSEN, save.roomId)
+        val outdoor = save.world.outdoor!!
+        assertEquals(1, outdoor.parcels.size)
+        // Das Gebäude ist gesetzt, sein Inneres noch unentdeckt
+        assertEquals(1, outdoor.buildings.size)
+        assertTrue(outdoor.buildings.values.all { it.targetRoomId == null })
         // Zielobjekt existiert, ist aber noch nicht platziert (versteckt)
         val ziel = save.world.items[save.world.story!!.geheimesZiel.zielId]!!
         assertEquals(StorySynthApi.HOLDER_HIDDEN, ziel.holder)
         // Startinventar liegt im Inventar
         assertTrue(save.world.inventory().any { it.name == "Brecheisen" })
-        // Spieler startet auf einer begehbaren Nicht-Tür-Kachel
-        assertTrue(raum.walkable(save.ptx, save.pty))
+        // Spieler startet auf einer begehbaren Kachel
+        assertTrue(outdoor.walkable(save.ptx, save.pty))
+    }
+
+    @Test
+    fun `Synthese ohne Gebaeude bekommt eine Notfall-Huette`() {
+        val ohneGebaeude = JSONObject(validStory()).apply {
+            getJSONObject("startgebiet").put("gebaeude", JSONArray())
+        }.toString()
+        server.enqueue(anthropic(ohneGebaeude))
+
+        val save = StorySynthApi.synthesize(context, Frame.baseStory("mondstation"), listOf("praktisch"))
+
+        val outdoor = save.world.outdoor!!
+        assertEquals(1, outdoor.buildings.size)
+        // Die Eingangskachel der Hütte ist begehbar
+        val huette = outdoor.buildings.values.first()
+        assertTrue(outdoor.walkable(huette.doorTile().first, huette.doorTile().second))
     }
 
     @Test
