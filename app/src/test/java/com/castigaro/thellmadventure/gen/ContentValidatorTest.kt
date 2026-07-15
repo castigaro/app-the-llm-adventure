@@ -2,8 +2,11 @@ package com.castigaro.thellmadventure.gen
 
 import com.castigaro.thellmadventure.game.Pathfinder
 import com.castigaro.thellmadventure.world.Door
+import com.castigaro.thellmadventure.world.IconArchetype
+import com.castigaro.thellmadventure.world.IconMaterial
 import com.castigaro.thellmadventure.world.Limits
 import com.castigaro.thellmadventure.world.Room
+import com.castigaro.thellmadventure.world.SLOT_COLORS
 import com.castigaro.thellmadventure.world.Wall
 import com.castigaro.thellmadventure.world.WorldState
 import org.json.JSONArray
@@ -119,7 +122,7 @@ class ContentValidatorTest {
                     put("enthaeltItem", JSONObject().apply {
                         put("name", "Goldkelch")
                         put("beschreibung", "Glänzt.")
-                        put("icon", JSONObject().put("form", "stern").put("farbe", 3).put("zeichen", "G"))
+                        put("icon", JSONObject().put("motiv", "krug").put("material", "messing").put("farbe", 3).put("leuchtet", false).put("abgenutzt", false))
                     })
                 })
             })
@@ -134,12 +137,27 @@ class ContentValidatorTest {
     }
 
     @Test
-    fun `unbekannte Icon-Form faellt auf einen abgeleiteten Wert zurueck`() {
+    fun `unbekanntes Icon-Motiv faellt auf die Namens-Ableitung zurueck`() {
         val icon = ContentValidator.buildIcon(
-            JSONObject().put("form", "portal").put("farbe", 2), "Schlüssel"
+            JSONObject().put("motiv", "portal").put("farbe", 2), "Schlüssel"
         )
-        // Kein Absturz, gültige Form aus dem Katalog
-        assertNotNull(icon.shape)
+        // Kein Absturz — und der Name führt zum passenden Motiv
+        assertEquals(IconArchetype.SCHLUESSEL, icon.motiv)
+    }
+
+    @Test
+    fun `gueltiges Icon-Motiv wird samt Material und Flaggen uebernommen`() {
+        val icon = ContentValidator.buildIcon(
+            JSONObject().put("motiv", "kristall").put("material", "kristall")
+                .put("farbe", 99).put("leuchtet", true).put("abgenutzt", true),
+            "Seelenstein",
+        )
+        assertEquals(IconArchetype.KRISTALL, icon.motiv)
+        assertEquals(IconMaterial.KRISTALL, icon.material)
+        assertTrue(icon.leuchtet)
+        assertTrue(icon.abgenutzt)
+        // Farb-Slot wird in den gültigen Bereich geklemmt
+        assertTrue(icon.colorIdx in SLOT_COLORS.indices)
     }
 
     @Test

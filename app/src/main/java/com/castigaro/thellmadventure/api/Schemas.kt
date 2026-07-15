@@ -3,7 +3,8 @@ package com.castigaro.thellmadventure.api
 import com.castigaro.thellmadventure.world.BodyShape
 import com.castigaro.thellmadventure.world.Chord
 import com.castigaro.thellmadventure.world.Headgear
-import com.castigaro.thellmadventure.world.IconShape
+import com.castigaro.thellmadventure.world.IconArchetype
+import com.castigaro.thellmadventure.world.IconMaterial
 import com.castigaro.thellmadventure.world.Palette
 import com.castigaro.thellmadventure.world.PropType
 import com.castigaro.thellmadventure.world.Timbre
@@ -54,9 +55,11 @@ object Schemas {
     // ---- Inhalts-Schemas -----------------------------------------------------
 
     private fun icon(): JSONObject = obj(
-        "form" to enumOf<IconShape>(),
+        "motiv" to enumOf<IconArchetype>(),
+        "material" to enumOf<IconMaterial>(),
         "farbe" to int(),
-        "zeichen" to str(),
+        "leuchtet" to bool(),
+        "abgenutzt" to bool(),
     )
 
     fun item(): JSONObject = obj(

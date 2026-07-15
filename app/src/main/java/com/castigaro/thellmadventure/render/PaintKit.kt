@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 
@@ -47,6 +48,26 @@ object PaintKit {
 
     fun withAlpha(color: Int, alpha: Int): Int =
         Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+
+    /**
+     * Hellt additiv auf (Lichtkanten, Glanzpunkte) — wirkt im Gegensatz zu
+     * [shade] auch bei sehr dunklen Farben. (Muster aus Kap-Krakenzahn.)
+     */
+    fun lighten(color: Int, amount: Int = 40): Int = Color.argb(
+        Color.alpha(color),
+        (Color.red(color) + amount).coerceIn(0, 255),
+        (Color.green(color) + amount).coerceIn(0, 255),
+        (Color.blue(color) + amount).coerceIn(0, 255),
+    )
+
+    /** Weicher radialer Schein (Fackeln, Kristalle, magische Gegenstände). */
+    fun radialGlow(canvas: Canvas, cx: Float, cy: Float, radius: Float, centerColor: Int) {
+        val edge = centerColor and 0x00FFFFFF // gleiche Farbe, Alpha 0
+        val p = Paint().apply {
+            shader = RadialGradient(cx, cy, radius, centerColor, edge, Shader.TileMode.CLAMP)
+        }
+        canvas.drawCircle(cx, cy, radius, p)
+    }
 
     /** Vertikaler Farbverlauf über ein Rechteck (Hintergrund). */
     fun verticalGradient(

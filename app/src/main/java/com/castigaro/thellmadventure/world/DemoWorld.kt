@@ -36,9 +36,18 @@ object DemoWorld {
         r2.doors.add(Door(Wall.O, 2, targetRoomId = null, label = "Kriechschacht"))
 
         // Gegenstände: liegen in Requisiten, verschwinden beim Aufnehmen.
-        val i1 = Item(world.nextId("i"), "Alter Schlüssel", "Kalt, schwer, dreizackiger Bart.", IconSpec(IconShape.SCHLUESSEL, 3))
-        val i2 = Item(world.nextId("i"), "Brecheisen", "Gutes, ehrliches Werkzeug.", IconSpec(IconShape.BLITZ, 7))
-        val i3 = Item(world.nextId("i"), "Ölkanne", "Halb voll. Oder halb leer.", IconSpec(IconShape.TROPFEN, 6))
+        val i1 = Item(
+            world.nextId("i"), "Alter Schlüssel", "Kalt, schwer, dreizackiger Bart.",
+            IconSpec(colorIdx = 3, motiv = IconArchetype.SCHLUESSEL, material = IconMaterial.MESSING, abgenutzt = true),
+        )
+        val i2 = Item(
+            world.nextId("i"), "Brecheisen", "Gutes, ehrliches Werkzeug.",
+            IconSpec(colorIdx = 7, motiv = IconArchetype.WERKZEUG, material = IconMaterial.EISEN),
+        )
+        val i3 = Item(
+            world.nextId("i"), "Ölkanne", "Halb voll. Oder halb leer.",
+            IconSpec(colorIdx = 6, motiv = IconArchetype.KRUG, material = IconMaterial.EISEN),
+        )
 
         r1.props.addAll(
             listOf(

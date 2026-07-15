@@ -90,7 +90,7 @@ class DialogApiTest {
             put("optionen", JSONArray().put("Danke."))
             put("effekte", JSONArray()) // KEIN erhalte:NEU
             put("neues_item", JSONObject().put("name", "Trank")
-                .put("icon", JSONObject().put("form", "flasche").put("farbe", 2).put("zeichen", "T")))
+                .put("icon", JSONObject().put("motiv", "flasche").put("material", "glas").put("farbe", 2).put("leuchtet", false).put("abgenutzt", false)))
         }.toString()))
 
         val turn = DialogApi.turn(context, save, npc, gewaehlteOption = null)
@@ -147,7 +147,7 @@ class DialogApiTest {
             put("optionen", JSONArray().put("Hallo."))
             put("effekte", JSONArray().put("erhalte:NEU"))
             put("neues_item", JSONObject().put("name", "Schatz")
-                .put("icon", JSONObject().put("form", "stern").put("farbe", 3).put("zeichen", "S")))
+                .put("icon", JSONObject().put("motiv", "muenze").put("material", "messing").put("farbe", 3).put("leuchtet", false).put("abgenutzt", false)))
         }.toString()))
 
         val turn = DialogApi.turn(context, save, npc, gewaehlteOption = null)

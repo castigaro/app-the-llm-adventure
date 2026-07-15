@@ -80,6 +80,20 @@
 
         </LinearLayout>
 
+        <!-- Ausgeschriebene Namen der eingelegten Gegenstände („Handspiegel + Feuerstein + …") -->
+        <TextView
+            android:id="@+id/craftSlotNames"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:maxWidth="320dp"
+            android:textColor="#FFF5F1E6"
+            android:textStyle="bold"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/craftHint"
             android:layout_width="wrap_content"

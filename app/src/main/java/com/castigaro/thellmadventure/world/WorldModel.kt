@@ -202,17 +202,48 @@ class Room(
     }
 }
 
-/** Prozedurales Icon eines Gegenstands oder einer Fähigkeit. */
+/**
+ * Prozedurales Icon eines Gegenstands oder einer Fähigkeit.
+ *
+ * Neue Icons tragen ein Detail-[motiv] samt [material]; [shape]/[glyph] bleiben
+ * nur als Alt-Daten erhalten. [motivUndMaterial] löst beim Malen auf, was
+ * tatsächlich gezeichnet wird — Alt-Spielstände brauchen so keine Migration.
+ */
 class IconSpec(
     var shape: IconShape = IconShape.WUERFEL,
     var colorIdx: Int = 0,
     var glyph: String = "",
+    var motiv: IconArchetype? = null,
+    var material: IconMaterial = IconMaterial.EISEN,
+    var leuchtet: Boolean = false,
+    var abgenutzt: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("shape", shape.name)
         put("colorIdx", colorIdx)
         put("glyph", glyph)
+        motiv?.let { put("motiv", it.name) }
+        put("material", material.name)
+        put("leuchtet", leuchtet)
+        put("abgenutzt", abgenutzt)
     }
+
+    /**
+     * Motiv und Material, die tatsächlich gemalt werden: explizites Motiv vor
+     * Namens-Schlüsselwort vor Alt-Form-Zuordnung.
+     */
+    fun motivUndMaterial(name: String): Pair<IconArchetype, IconMaterial> {
+        motiv?.let { return it to material }
+        zuordnung(name)?.let { return it.motiv to it.material }
+        return motivFromShape(shape)
+    }
+
+    /** Ein Schlüsselwort-Treffer der Namens-Ableitung. */
+    private class Zuordnung(
+        val woerter: List<String>,
+        val motiv: IconArchetype,
+        val material: IconMaterial,
+    )
 
     companion object {
         fun fromJson(json: JSONObject?): IconSpec {
@@ -221,17 +252,91 @@ class IconSpec(
                 shape = enumOrNull<IconShape>(json.optString("shape")) ?: IconShape.WUERFEL,
                 colorIdx = json.optInt("colorIdx", 0),
                 glyph = json.optString("glyph").take(1),
+                motiv = enumOrNull<IconArchetype>(json.optString("motiv")),
+                material = enumOrNull<IconMaterial>(json.optString("material"))
+                    ?: IconMaterial.EISEN,
+                leuchtet = json.optBoolean("leuchtet", false),
+                abgenutzt = json.optBoolean("abgenutzt", false),
             )
         }
 
         /** Fallback: aus dem Namen deterministisch ein Icon ableiten. */
         fun derived(name: String): IconSpec {
             val hash = name.hashCode()
+            val treffer = zuordnung(name)
+            val motiv = treffer?.motiv
+                ?: IconArchetype.values()[Math.floorMod(hash, IconArchetype.values().size)]
             return IconSpec(
                 shape = IconShape.values()[Math.floorMod(hash, IconShape.values().size)],
                 colorIdx = Math.floorMod(hash / 31, SLOT_COLORS.size),
                 glyph = name.firstOrNull()?.uppercase() ?: "",
+                motiv = motiv,
+                material = treffer?.material
+                    ?: IconMaterial.values()[Math.floorMod(hash / 7, IconMaterial.values().size)],
+                leuchtet = motiv in LEUCHTENDE,
             )
+        }
+
+        /** Alt-Silhouette → nächstliegendes Detail-Motiv (für alte Spielstände). */
+        fun motivFromShape(shape: IconShape): Pair<IconArchetype, IconMaterial> = when (shape) {
+            IconShape.KREIS -> IconArchetype.MUENZE to IconMaterial.MESSING
+            IconShape.RAUTE -> IconArchetype.KRISTALL to IconMaterial.KRISTALL
+            IconShape.FLASCHE -> IconArchetype.FLASCHE to IconMaterial.GLAS
+            IconShape.SCHLUESSEL -> IconArchetype.SCHLUESSEL to IconMaterial.MESSING
+            IconShape.ZAHNRAD -> IconArchetype.ZAHNRAD to IconMaterial.EISEN
+            IconShape.ROLLE -> IconArchetype.SCHRIFTROLLE to IconMaterial.KNOCHEN
+            IconShape.STERN -> IconArchetype.AMULETT to IconMaterial.MESSING
+            IconShape.TROPFEN -> IconArchetype.FLASCHE to IconMaterial.GLAS
+            IconShape.SCHILD -> IconArchetype.AMULETT to IconMaterial.EISEN
+            IconShape.WUERFEL -> IconArchetype.WUERFEL to IconMaterial.KNOCHEN
+            IconShape.BLITZ -> IconArchetype.KRISTALL to IconMaterial.KRISTALL
+            IconShape.HERZ -> IconArchetype.AMULETT to IconMaterial.STOFF
+        }
+
+        /** Motive, die von sich aus leuchten, wenn sie per Name abgeleitet werden. */
+        private val LEUCHTENDE = setOf(
+            IconArchetype.FACKEL, IconArchetype.LATERNE, IconArchetype.KRISTALL,
+        )
+
+        /**
+         * Deutsche Schlüsselwörter → Motiv. Reihenfolge zählt: Spezifisches
+         * steht vor Allgemeinem („Schraubenschlüssel" ist Werkzeug, kein
+         * Schlüssel; „Edelstein" Kristall, kein Stein; „Zahnrad" kein Knochen).
+         */
+        private val ZUORDNUNGEN = listOf(
+            Zuordnung(listOf("hammer", "zange", "schrauben", "werkzeug", "meißel", "meissel", "bohrer", "säge", "saege"), IconArchetype.WERKZEUG, IconMaterial.EISEN),
+            Zuordnung(listOf("schlüssel", "schluessel"), IconArchetype.SCHLUESSEL, IconMaterial.MESSING),
+            Zuordnung(listOf("zahnrad", "getriebe"), IconArchetype.ZAHNRAD, IconMaterial.EISEN),
+            Zuordnung(listOf("kristall", "juwel", "edelstein", "diamant", "rubin", "smaragd", "saphir"), IconArchetype.KRISTALL, IconMaterial.KRISTALL),
+            Zuordnung(listOf("flasche", "trank", "phiole", "elixier", "tinktur", "öl"), IconArchetype.FLASCHE, IconMaterial.GLAS),
+            Zuordnung(listOf("schriftrolle", "pergament", "brief", "notiz", "zettel", "urkunde"), IconArchetype.SCHRIFTROLLE, IconMaterial.KNOCHEN),
+            Zuordnung(listOf("buch", "grimoire", "fibel"), IconArchetype.BUCH, IconMaterial.STOFF),
+            Zuordnung(listOf("schwert", "messer", "dolch", "klinge", "säbel", "saebel", "axt", "machete"), IconArchetype.KLINGE, IconMaterial.EISEN),
+            Zuordnung(listOf("fackel"), IconArchetype.FACKEL, IconMaterial.HOLZ),
+            Zuordnung(listOf("laterne", "lampe", "leuchte"), IconArchetype.LATERNE, IconMaterial.MESSING),
+            Zuordnung(listOf("seil", "schnur", "kordel"), IconArchetype.SEIL, IconMaterial.HOLZ),
+            Zuordnung(listOf("haken", "anker"), IconArchetype.HAKEN, IconMaterial.EISEN),
+            Zuordnung(listOf("münze", "muenze", "taler", "dukate"), IconArchetype.MUENZE, IconMaterial.MESSING),
+            Zuordnung(listOf("amulett", "medaillon", "anhänger", "anhaenger", "talisman"), IconArchetype.AMULETT, IconMaterial.MESSING),
+            Zuordnung(listOf("kompass"), IconArchetype.KOMPASS, IconMaterial.MESSING),
+            Zuordnung(listOf("karte", "plan", "atlas"), IconArchetype.KARTE, IconMaterial.KNOCHEN),
+            Zuordnung(listOf("horn"), IconArchetype.HORN, IconMaterial.KNOCHEN),
+            Zuordnung(listOf("feder"), IconArchetype.FEDER, IconMaterial.KNOCHEN),
+            Zuordnung(listOf("pilz"), IconArchetype.PILZ, IconMaterial.STOFF),
+            Zuordnung(listOf("kraut", "blume", "blüte", "bluete", "blatt", "pflanze", "wurzel", "moos"), IconArchetype.KRAUT, IconMaterial.HOLZ),
+            Zuordnung(listOf("knochen", "schädel", "schaedel", "skelett", "zahn"), IconArchetype.KNOCHEN, IconMaterial.KNOCHEN),
+            Zuordnung(listOf("beutel", "sack", "tasche"), IconArchetype.BEUTEL, IconMaterial.STOFF),
+            Zuordnung(listOf("krug", "becher", "tasse", "kelch", "humpen", "kanne"), IconArchetype.KRUG, IconMaterial.HOLZ),
+            Zuordnung(listOf("spiegel"), IconArchetype.SPIEGEL, IconMaterial.GLAS),
+            Zuordnung(listOf("glocke"), IconArchetype.GLOCKE, IconMaterial.MESSING),
+            Zuordnung(listOf("würfel", "wuerfel"), IconArchetype.WUERFEL, IconMaterial.KNOCHEN),
+            Zuordnung(listOf("ring"), IconArchetype.RING, IconMaterial.MESSING),
+            Zuordnung(listOf("stein", "fels", "kiesel", "brocken"), IconArchetype.STEIN, IconMaterial.STEIN),
+        )
+
+        private fun zuordnung(name: String): Zuordnung? {
+            val klein = name.lowercase()
+            return ZUORDNUNGEN.firstOrNull { z -> z.woerter.any { klein.contains(it) } }
         }
     }
 }

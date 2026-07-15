@@ -5,7 +5,8 @@ import com.castigaro.thellmadventure.game.Pathfinder
 import com.castigaro.thellmadventure.world.BodyShape
 import com.castigaro.thellmadventure.world.Door
 import com.castigaro.thellmadventure.world.Headgear
-import com.castigaro.thellmadventure.world.IconShape
+import com.castigaro.thellmadventure.world.IconArchetype
+import com.castigaro.thellmadventure.world.IconMaterial
 import com.castigaro.thellmadventure.world.IconSpec
 import com.castigaro.thellmadventure.world.Item
 import com.castigaro.thellmadventure.world.Limits
@@ -221,12 +222,14 @@ object ContentValidator {
 
     fun buildIcon(json: JSONObject?, fallbackName: String): IconSpec {
         if (json == null) return IconSpec.derived(fallbackName)
-        val shape = enumOrNull<IconShape>(json.optString("form"))
+        val motiv = enumOrNull<IconArchetype>(json.optString("motiv"))
             ?: return IconSpec.derived(fallbackName)
         return IconSpec(
-            shape = shape,
             colorIdx = json.optInt("farbe", 0).coerceIn(0, SLOT_COLORS.size - 1),
-            glyph = json.optString("zeichen").take(1),
+            motiv = motiv,
+            material = enumOrNull<IconMaterial>(json.optString("material")) ?: IconMaterial.EISEN,
+            leuchtet = json.optBoolean("leuchtet", false),
+            abgenutzt = json.optBoolean("abgenutzt", false),
         )
     }
 

@@ -44,10 +44,38 @@ enum class PropType {
 /** Erlaubte Zustands-Schlüssel an Requisiten. */
 val PROP_STATES = setOf("offen", "an", "kaputt", "verschlossen")
 
-/** Icon-Silhouetten für Gegenstände und Fähigkeiten. */
+/**
+ * Icon-Silhouetten für Gegenstände und Fähigkeiten.
+ * Alt-Vokabular: neue Icons wählen ein [IconArchetype]; die Form bleibt nur
+ * erhalten, damit gespeicherte Spielstände weiter lesbar sind.
+ */
 enum class IconShape {
     KREIS, RAUTE, FLASCHE, SCHLUESSEL, ZAHNRAD, ROLLE,
     STERN, TROPFEN, SCHILD, WUERFEL, BLITZ, HERZ,
+}
+
+/**
+ * Detail-Motive für Gegenstands- und Fähigkeits-Icons. Der IconPainter kennt
+ * für jedes Motiv eine eigene ausgearbeitete Vektorzeichnung (Stil-Vorbild:
+ * Kap Krakenzahns ItemIconPainter) — die KI wählt nur das passendste Motiv.
+ */
+enum class IconArchetype {
+    SCHLUESSEL, FLASCHE, BUCH, SCHRIFTROLLE, WERKZEUG, KLINGE, FACKEL,
+    LATERNE, SEIL, HAKEN, ZAHNRAD, KRISTALL, MUENZE, AMULETT, RING,
+    KARTE, KOMPASS, HORN, FEDER, KRAUT, PILZ, KNOCHEN, BEUTEL, KRUG,
+    SPIEGEL, GLOCKE, STEIN, WUERFEL,
+}
+
+/** Material eines Icons — bestimmt die Grundfarb-Rampe des Motivs. */
+enum class IconMaterial(val grund: Int) {
+    HOLZ(0xFF8A5A34.toInt()),
+    EISEN(0xFF6E7B8A.toInt()),
+    MESSING(0xFFC9973C.toInt()),
+    STEIN(0xFF8E8E96.toInt()),
+    GLAS(0xFF9CC8DC.toInt()),
+    KRISTALL(0xFF9C7CD8.toInt()),
+    STOFF(0xFFB05A50.toInt()),
+    KNOCHEN(0xFFE8E0CC.toInt()),
 }
 
 /** Körperformen für Figuren (Spieler und NPCs). */

@@ -158,7 +158,12 @@ object Frame {
         appendLine("KATALOG (nur daraus wählen, Werte kleingeschrieben):")
         appendLine("Requisiten-Typen: " + PropType.values().joinToString(", ") { it.name.lowercase() })
         appendLine("Paletten: " + Palette.values().joinToString(", ") { it.name.lowercase() })
-        appendLine("Icon-Formen: " + IconShape.values().joinToString(", ") { it.name.lowercase() })
+        appendLine("Icon-Motive: " + IconArchetype.values().joinToString(", ") { it.name.lowercase() })
+        appendLine("Icon-Materialien: " + IconMaterial.values().joinToString(", ") { it.name.lowercase() })
+        appendLine(
+            "Wähle je Gegenstand das Motiv, das ihm am ähnlichsten sieht; " +
+                "leuchtet nur für magische/aktive Dinge, abgenutzt für altes/beschädigtes."
+        )
         appendLine("Körperformen: " + BodyShape.values().joinToString(", ") { it.name.lowercase() })
         appendLine("Kopfbedeckungen: " + Headgear.values().joinToString(", ") { it.name.lowercase() })
         appendLine("Zustände: " + PROP_STATES.joinToString(", "))

@@ -57,14 +57,14 @@ class StorySynthApiTest {
         put("zielItem", JSONObject().apply {
             put("name", "Kernschlüssel")
             put("beschreibung", "Warm und schwer.")
-            put("icon", JSONObject().put("form", "schluessel").put("farbe", 3).put("zeichen", "K"))
+            put("icon", JSONObject().put("motiv", "schluessel").put("material", "messing").put("farbe", 3).put("leuchtet", true).put("abgenutzt", false))
         })
         put("zielUmschreibung", "Er öffnet den Reaktor.")
         put("spielerAussehen", JSONObject().put("koerper", "schlank").put("farbeA", 1).put("farbeB", 5).put("kopf", "helm"))
         put("startInventar", JSONArray().put(JSONObject().apply {
             put("name", "Brecheisen")
             put("beschreibung", "Ehrlich.")
-            put("icon", JSONObject().put("form", "blitz").put("farbe", 7).put("zeichen", "B"))
+            put("icon", JSONObject().put("motiv", "werkzeug").put("material", "eisen").put("farbe", 7).put("leuchtet", false).put("abgenutzt", false))
         }))
         put("startraum", JSONObject().apply {
             put("name", "Maschinenraum")

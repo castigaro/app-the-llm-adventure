@@ -70,7 +70,7 @@ class CraftApiTest {
             put("ergebnis", "neu")
             put("text", "Du bindest eine Angel.")
             put("item", JSONObject().put("name", "Angel").put("beschreibung", "Zum Fischen.")
-                .put("icon", JSONObject().put("form", "rolle").put("farbe", 2).put("zeichen", "A")))
+                .put("icon", JSONObject().put("motiv", "haken").put("material", "holz").put("farbe", 2).put("leuchtet", false).put("abgenutzt", false)))
         }.toString()))
 
         val res = CraftApi.craft(context, save, ids)
@@ -111,7 +111,7 @@ class CraftApiTest {
             put("ergebnis", "neu")
             put("text", "Verbunden.")
             put("item", JSONObject().put("name", "Fackel").put("beschreibung", "Licht.")
-                .put("icon", JSONObject().put("form", "blitz").put("farbe", 3).put("zeichen", "F")))
+                .put("icon", JSONObject().put("motiv", "fackel").put("material", "holz").put("farbe", 3).put("leuchtet", true).put("abgenutzt", false)))
         }.toString()))
         CraftApi.craft(context, save, ids)
 

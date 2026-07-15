@@ -100,12 +100,38 @@ class CraftingController(
 
     private fun renderSlots() {
         slotViews.forEachIndexed { index, view ->
-            view.spec = slots[index]?.icon
+            view.bind(slots[index]?.icon, slots[index]?.name ?: "")
             view.highlight = index == selectedSlot
+        }
+        renderSlotNames()
+    }
+
+    /** Schreibt die eingelegten Gegenstände aus („Handspiegel + Feuerstein + …"). */
+    private fun renderSlotNames() {
+        val text = slotNamesText(slots.toList())
+        if (text == null) {
+            binding.craftSlotNames.visibility = View.GONE
+        } else {
+            binding.craftSlotNames.text = text
+            binding.craftSlotNames.visibility = View.VISIBLE
         }
     }
 
     private fun updateCombineState() {
         binding.craftCombine.isEnabled = slots.count { it != null } >= 2
+    }
+
+    companion object {
+        /**
+         * Baut die Namenszeile der Slots: belegte mit „ + " verbunden, ein
+         * angehängtes „ + …" solange noch ein Slot frei ist; null bei leerer Bank.
+         */
+        fun slotNamesText(slots: List<Item?>): String? {
+            val filled = slots.filterNotNull()
+            if (filled.isEmpty()) return null
+            val namen = filled.joinToString(" + ") { it.name }
+            val offen = if (slots.any { it == null }) " + …" else ""
+            return namen + offen
+        }
     }
 }

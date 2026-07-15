@@ -19,6 +19,13 @@ class IconView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** Name des Gegenstands — der Painter leitet daraus Alt-Icons ab. */
+    var itemName: String = ""
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     /** Goldener Auswahlrahmen (aktiver „Benutze mit …"-Gegenstand). */
     var highlight: Boolean = false
         set(value) {
@@ -26,8 +33,14 @@ class IconView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** Setzt Icon und Namen in einem Zug (eine Invalidierung genügt). */
+    fun bind(spec: IconSpec?, name: String) {
+        itemName = name
+        this.spec = spec
+    }
+
     override fun onDraw(canvas: Canvas) {
         val s = spec ?: return
-        IconPainter.draw(canvas, s, min(width, height).toFloat(), highlight)
+        IconPainter.draw(canvas, s, itemName, min(width, height).toFloat(), highlight)
     }
 }

@@ -37,7 +37,7 @@ class InventoryBarAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val item = items[position]
-        holder.icon.spec = item.icon
+        holder.icon.bind(item.icon, item.name)
         holder.icon.highlight = item.id == selectedId
         holder.icon.contentDescription = item.name
         holder.itemView.setOnClickListener { onTap(item) }
@@ -123,7 +123,7 @@ class InventoryListAdapter(
             selected: Boolean,
             onTap: (() -> Unit)?,
         ) {
-            icon.spec = spec
+            icon.bind(spec, title)
             icon.highlight = selected
             name.text = title
             description.text = subtitle
