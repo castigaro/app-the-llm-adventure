@@ -47,7 +47,8 @@ Spielsession fest bleibt.
 Das Spiel lebt von der KI-Generierung — es gibt bewusst **keinen
 Offline-Modus**. Ohne hinterlegten Anthropic- oder OpenAI-Key führt der
 Spielstart zu einem Einrichtungsbildschirm. Die Key-Verwaltung stammt aus der
-gemeinsamen Bibliothek `common/android`
+gemeinsamen Bibliothek
+[`android-apps-common`](https://github.com/castigaro/android-apps-common)
 (`com.castigaro.common.llm.ProviderSettings`); der Key bleibt auf dem Gerät,
 die geschätzten Kosten werden mitgezählt.
 
@@ -62,7 +63,8 @@ eigene JSON-Datei unter `files/saves/`.
 ## Technik
 
 Native Android-App (Kotlin, Gradle KTS, minSdk 26 / compileSdk 34, JDK 17,
-ViewBinding). Bindet `:common` über `../../common/android` ein. LLM-Zugriff
+ViewBinding). Bindet `:common` über `../android-apps-common/android` ein
+(Geschwister-Repo). LLM-Zugriff
 per OkHttp direkt gegen die Anthropic- (Messages API) bzw. OpenAI-Endpunkte,
 mit optionalen Structured Outputs und tolerantem JSON-Parser als Rückfall.
 
