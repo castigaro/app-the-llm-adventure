@@ -2,6 +2,7 @@ package com.castigaro.thellmadventure.render
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Picture
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -15,23 +16,31 @@ import com.castigaro.thellmadventure.world.Look
 import com.castigaro.thellmadventure.world.Npc
 import com.castigaro.thellmadventure.world.OutdoorMap
 import com.castigaro.thellmadventure.world.Palette
+import com.castigaro.thellmadventure.world.Parcel
 import com.castigaro.thellmadventure.world.Prop
 import com.castigaro.thellmadventure.world.Room
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.hypot
 
 /**
  * Die isometrische Spielfläche. Wie Kap-Krakenzahns SceneView eine reine
- * View/Canvas-Lösung mit vsync-getriebener Animationsschleife — aber mit
- * Kachel-Pfadfindung und einer Kamera, sodass Räume größer als das Display
- * sein können: Tippen = laufen/interagieren, Ziehen = Ansicht schwenken.
+ * View/Canvas-Lösung — aber mit Kachel-Pfadfindung und einer Kamera, sodass
+ * Räume größer als das Display sein können: Tippen = laufen/interagieren,
+ * Ziehen = Ansicht schwenken.
  *
  * Zwei Szenen teilen sich dieselbe Mechanik: ein [Room] (Innenraum, lokale
  * Kacheln ab 0,0) oder die [OutdoorMap] (Außenkarte, GLOBALE Kacheln, auch
  * negativ). Dank der linearen Iso-Mathematik brauchen Pfadfindung,
  * Treffer-Tests und Malreihenfolge keinerlei Sonderfälle — nur Begehbarkeit
  * und Grenzen kommen aus der jeweiligen Szene.
+ *
+ * Performance: Das statische Gelände (Boden, Wände bzw. Parzellen-Terrain)
+ * wird je Ort einmal in ein [Picture] aufgenommen und danach nur noch
+ * abgespielt; die Animationsschleife tickt gestuft ([FrameGate]) — volle
+ * Bildrate nur bei Bewegung, gemächlicher Takt für sichtbares Geschimmer,
+ * völliger Stillstand sonst.
  */
 class IsoView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null,
@@ -102,6 +111,16 @@ class IsoView @JvmOverloads constructor(
 
     private val walkSpeed = 3.2f // Kacheln pro Sekunde
 
+    // Picture-Caches des statischen Untergrunds (Terrain bzw. Boden+Wände).
+    // In-Memory, an die gebundene Szene geknüpft — nie serialisiert.
+    private class CachedPicture(val picture: Picture, val offX: Float, val offY: Float)
+
+    private val parcelPictures = HashMap<String, CachedPicture>()
+    private var parcelCacheStand = -1
+    private var roomPicture: CachedPicture? = null
+
+    private val ambientTick = Runnable { postInvalidateOnAnimation() }
+
     // Touch-Unterscheidung Tipp vs. Schwenken vs. Pinch-Zoom
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var downX = 0f
@@ -128,7 +147,7 @@ class IsoView @JvmOverloads constructor(
     var animate: Boolean = true
         set(value) {
             field = value
-            if (value) postInvalidateOnAnimation()
+            if (value) postInvalidateOnAnimation() else removeCallbacks(ambientTick)
         }
 
     /** Bindet einen Raum und setzt den Spieler ohne Animation auf [startTile]. */
@@ -141,12 +160,22 @@ class IsoView @JvmOverloads constructor(
         bindSzene(Szene.Karte(map), startTile)
     }
 
+    /** Wirft die Terrain-Pictures weg (nach dem Manifestieren neuer Parzellen). */
+    fun kartenCacheLeeren() {
+        parcelPictures.clear()
+        parcelCacheStand = -1
+        invalidate()
+    }
+
     private fun bindSzene(neu: Szene, startTile: Pair<Int, Int>) {
         szene = neu
         px = startTile.first + 0.5f
         py = startTile.second + 0.5f
         path.clear()
         ziel = null
+        parcelPictures.clear()
+        parcelCacheStand = -1
+        roomPicture = null
         camera.jumpTo(IsoMath.worldX(px, py), IsoMath.worldY(px, py))
         clampCamera()
         listener?.onPanModeChanged(false)
@@ -235,6 +264,9 @@ class IsoView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP -> {
                 if (!panning && !multiTouch) handleTap(event.x, event.y)
+                // Finger weg: Geste beendet, die Schleife darf zur Ruhe kommen.
+                panning = false
+                multiTouch = false
             }
         }
         return true
@@ -282,7 +314,12 @@ class IsoView @JvmOverloads constructor(
     }
 
     private fun tapKarte(map: OutdoorMap, wx: Float, wy: Float) {
-        val npc = map.parcels.values.asSequence()
+        // Schnappschüsse: Die Parzellen-Generierung mutiert die Karte auf dem
+        // IO-Thread — Listenkopien halten die Treffersuche stabil.
+        val parcelListe = map.parcels.values.toList()
+        val gebaeudeListe = map.buildings.values.toList()
+
+        val npc = parcelListe.asSequence()
             .flatMap { it.npcIds.asSequence() }.mapNotNull { npcProvider(it) }
             .filter { hitsTile(it.tx, it.ty, wx, wy) }
             .minByOrNull { hitDistance(it.tx, it.ty, wx, wy) }
@@ -291,7 +328,7 @@ class IsoView @JvmOverloads constructor(
             return
         }
 
-        val prop = map.allProps()
+        val prop = parcelListe.asSequence().flatMap { it.props.asSequence() }
             .filter { hitsTile(it.tx, it.ty, wx, wy) }
             .minByOrNull { hitDistance(it.tx, it.ty, wx, wy) }
         if (prop != null) {
@@ -299,7 +336,7 @@ class IsoView @JvmOverloads constructor(
             return
         }
 
-        val building = map.buildings.values.firstOrNull { hitsBuilding(it, wx, wy) }
+        val building = gebaeudeListe.firstOrNull { hitsBuilding(it, wx, wy) }
         if (building != null) {
             approachBuilding(building)
             return
@@ -548,9 +585,12 @@ class IsoView @JvmOverloads constructor(
         lastFrame = now
         stepMovement(dt)
 
-        // Kamera folgt dem Spieler
+        // Kamera folgt dem Spieler; merken, ob sie sich diesen Frame bewegt hat.
+        val camXVorher = camera.x
+        val camYVorher = camera.y
         camera.follow(IsoMath.worldX(px, py), IsoMath.worldY(px, py), dt)
         clampCamera()
+        val kameraRuht = abs(camera.x - camXVorher) < 0.05f && abs(camera.y - camYVorher) < 0.05f
 
         canvas.save()
         canvas.translate(camera.viewW / 2f, camera.viewH / 2f)
@@ -561,25 +601,43 @@ class IsoView @JvmOverloads constructor(
             (camera.baseZoom / camera.zoom).coerceAtLeast(1f)
         } else 1f
 
-        when (s) {
+        val ambientSichtbar = when (s) {
             is Szene.Raum -> drawRaum(canvas, s.room, timeMs, labelScale)
             is Szene.Karte -> drawKarte(canvas, s.map, timeMs, labelScale)
         }
 
         canvas.restore()
 
-        if (animate) postInvalidateOnAnimation()
+        scheduleNext(kameraRuht, ambientSichtbar)
     }
 
-    private fun drawRaum(canvas: Canvas, r: Room, timeMs: Long, labelScale: Float) {
-        RoomRenderer.drawFloor(canvas, r)
-        RoomRenderer.drawDoorMarkers(canvas, r)
-        RoomRenderer.drawWalls(canvas, r, timeMs)
+    /** Gestufte Animationsschleife: vsync → Ambient-Takt → Stillstand. */
+    private fun scheduleNext(kameraRuht: Boolean, ambientSichtbar: Boolean) {
+        removeCallbacks(ambientTick)
+        if (!animate) return
+        val bewegung = path.isNotEmpty() || panning || multiTouch
+        when (FrameGate.modus(bewegung, kameraRuht, ambientSichtbar)) {
+            FrameGate.Modus.VSYNC -> postInvalidateOnAnimation()
+            FrameGate.Modus.AMBIENT -> postDelayed(ambientTick, AMBIENT_MS)
+            FrameGate.Modus.IDLE -> {}
+        }
+    }
+
+    /** true, wenn Animiertes sichtbar ist (hält den Ambient-Takt wach). */
+    private fun drawRaum(canvas: Canvas, r: Room, timeMs: Long, labelScale: Float): Boolean {
+        // Statischer Untergrund (Boden, Türmatten, Wände) aus dem Picture
+        val cached = roomPicture ?: recordRoom(r).also { roomPicture = it }
+        canvas.save()
+        canvas.translate(cached.offX, cached.offY)
+        canvas.drawPicture(cached.picture)
+        canvas.restore()
 
         // Entities in Painter-Reihenfolge (Requisiten + Figuren + Spieler)
+        var animiert = false
         val walking = path.isNotEmpty()
         val entities = ArrayList<Pair<Float, () -> Unit>>(r.props.size + r.npcIds.size + 1)
         r.props.forEach { p ->
+            if (FrameGate.propAnimiert(p)) animiert = true
             entities.add((p.tx + p.ty + 0.9f) to { PropPainter.draw(canvas, p, r.palette, timeMs) })
         }
         r.npcIds.mapNotNull { npcProvider(it) }.forEach { npc ->
@@ -605,9 +663,13 @@ class IsoView @JvmOverloads constructor(
         // sie mit der Welt mit (scale=1); nur beim Rauszoomen wird kompensiert,
         // damit sie am Bildschirm nie unter die lesbare Größe schrumpfen.
         RoomRenderer.drawDoorLabels(canvas, r, timeMs, labelScale)
+
+        // Unentdeckte Türen schimmern — das braucht den Ambient-Takt.
+        return animiert || r.doors.any { it.targetRoomId == null }
     }
 
-    private fun drawKarte(canvas: Canvas, map: OutdoorMap, timeMs: Long, labelScale: Float) {
+    /** true, wenn Animiertes sichtbar ist (hält den Ambient-Takt wach). */
+    private fun drawKarte(canvas: Canvas, map: OutdoorMap, timeMs: Long, labelScale: Float): Boolean {
         // Sichtbarer Kachelbereich aus dem Kamera-Ausschnitt (Frustum-Culling)
         val halfW = camera.viewW / (2f * camera.zoom)
         val halfH = camera.viewH / (2f * camera.zoom)
@@ -616,21 +678,40 @@ class IsoView @JvmOverloads constructor(
             camera.x + halfW, camera.y + halfH,
         )
 
-        MapRenderer.drawTerrain(canvas, map, range)
-        MapRenderer.drawFog(canvas, map, range, timeMs)
+        // Schnappschüsse: Die Parzellen-Generierung mutiert die Karte auf dem
+        // IO-Thread. Neue Parzellen invalidieren zudem die Nachbar-Pictures
+        // (Säume/Schaum an der Naht ändern sich mit dem neuen Nachbarn).
+        val parcelListe = map.parcels.values.toList()
+        if (parcelListe.size != parcelCacheStand) {
+            parcelPictures.clear()
+            parcelCacheStand = parcelListe.size
+        }
 
-        val walking = path.isNotEmpty()
-        val entities = ArrayList<Pair<Float, () -> Unit>>()
-        map.parcels.values.forEach { parcel ->
-            // Nur Parzellen im Sichtbereich liefern Entities
+        val sichtbareParzellen = parcelListe.filter { parcel ->
             val ox = parcel.originTx()
             val oy = parcel.originTy()
-            if (ox + Limits.PARZELLE < range[0] || ox > range[2] ||
-                oy + Limits.PARZELLE < range[1] || oy > range[3]
-            ) {
-                return@forEach
-            }
+            ox + Limits.PARZELLE >= range[0] && ox <= range[2] &&
+                oy + Limits.PARZELLE >= range[1] && oy <= range[3]
+        }
+
+        // Statisches Terrain aus den Pictures
+        sichtbareParzellen.forEach { parcel ->
+            val cached = parcelPictures.getOrPut(parcel.id) { recordParcel(map, parcel) }
+            canvas.save()
+            canvas.translate(cached.offX, cached.offY)
+            canvas.drawPicture(cached.picture)
+            canvas.restore()
+        }
+
+        val wasser = MapRenderer.drawWasserGlanz(canvas, map, range, timeMs)
+        val nebel = MapRenderer.drawFog(canvas, map, range, timeMs)
+
+        var animiert = false
+        val walking = path.isNotEmpty()
+        val entities = ArrayList<Pair<Float, () -> Unit>>()
+        sichtbareParzellen.forEach { parcel ->
             parcel.props.forEach { p ->
+                if (FrameGate.propAnimiert(p)) animiert = true
                 entities.add((p.tx + p.ty + 0.9f) to { PropPainter.draw(canvas, p, parcel.palette, timeMs) })
             }
             parcel.npcIds.mapNotNull { npcProvider(it) }.forEach { npc ->
@@ -643,7 +724,7 @@ class IsoView @JvmOverloads constructor(
                 })
             }
         }
-        map.buildings.values.forEach { b ->
+        map.buildings.values.toList().forEach { b ->
             if (b.tx + b.w < range[0] || b.tx > range[2] || b.ty + b.h < range[1] || b.ty > range[3]) return@forEach
             // Tiefe der vorderen Ecke, damit Figuren vor der Fassade sichtbar bleiben
             entities.add((b.tx + b.w - 1 + b.ty + b.h - 1 + 0.95f) to {
@@ -660,12 +741,55 @@ class IsoView @JvmOverloads constructor(
         entities.sortBy { it.first }
         entities.forEach { it.second() }
 
-        MapRenderer.drawBuildingLabels(canvas, map, range, timeMs, labelScale)
+        val gebaeudeSchimmer = MapRenderer.drawBuildingLabels(canvas, map, range, timeMs, labelScale)
+        return wasser || nebel || animiert || gebaeudeSchimmer
+    }
+
+    /** Nimmt das statische Terrain einer Parzelle in ein Picture auf. */
+    private fun recordParcel(map: OutdoorMap, parcel: Parcel): CachedPicture {
+        val g = Limits.PARZELLE
+        val minWx = IsoMath.boundsMinX(parcel.originTx(), parcel.originTy() + g)
+        val maxWx = IsoMath.boundsMaxX(parcel.originTx() + g, parcel.originTy())
+        val minWy = IsoMath.boundsMinY(parcel.originTx(), parcel.originTy())
+        val maxWy = IsoMath.boundsMaxY(parcel.originTx() + g, parcel.originTy() + g)
+        val pad = IsoMath.TILE_H
+        val picture = Picture()
+        val c = picture.beginRecording(
+            ceil(maxWx - minWx + 2 * pad).toInt(),
+            ceil(maxWy - minWy + 2 * pad).toInt(),
+        )
+        c.translate(-minWx + pad, -minWy + pad)
+        MapRenderer.drawParcelStatic(c, map, parcel)
+        picture.endRecording()
+        return CachedPicture(picture, minWx - pad, minWy - pad)
+    }
+
+    /** Nimmt Boden, Türmatten und Wände eines Raums in ein Picture auf. */
+    private fun recordRoom(r: Room): CachedPicture {
+        val minWx = IsoMath.roomMinX(r.h)
+        val maxWx = IsoMath.roomMaxX(r.w)
+        val minWy = IsoMath.roomMinY()
+        val maxWy = IsoMath.roomMaxY(r.w, r.h)
+        val pad = IsoMath.TILE_H
+        val picture = Picture()
+        val c = picture.beginRecording(
+            ceil(maxWx - minWx + 2 * pad).toInt(),
+            ceil(maxWy - minWy + 2 * pad).toInt(),
+        )
+        c.translate(-minWx + pad, -minWy + pad)
+        RoomRenderer.drawFloor(c, r)
+        RoomRenderer.drawDoorMarkers(c, r)
+        RoomRenderer.drawWalls(c, r, 0L)
+        picture.endRecording()
+        return CachedPicture(picture, minWx - pad, minWy - pad)
     }
 
     private companion object {
         /** Vertikale Ausdehnung der Trefferbox in Kachelhöhen (Sprites sind hoch). */
         const val HIT_HEIGHT = 1.15f
+
+        /** Takt des Ambient-Modus (Schimmern/Wasser) in Millisekunden. */
+        const val AMBIENT_MS = 120L
     }
 
     private fun stepMovement(dt: Float) {

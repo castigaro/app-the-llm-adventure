@@ -124,9 +124,19 @@ object PropPainter {
 
     private fun fass(canvas: Canvas, cx: Float, cy: Float, color: Int) {
         PaintKit.cylinder(canvas, cx, cy, TW * 0.22f, TH * 0.85f, color)
-        val band = PaintKit.line(PaintKit.shade(color, 0.55f), TH * 0.06f)
+        // Daubenlinien (Muster aus Kap-Krakenzahns Fass-Icon)
+        val daube = PaintKit.line(PaintKit.shade(color, 0.7f), TH * 0.025f)
+        canvas.drawLine(cx - TW * 0.08f, cy - TH * 0.80f, cx - TW * 0.08f, cy + TH * 0.06f, daube)
+        canvas.drawLine(cx + TW * 0.08f, cy - TH * 0.80f, cx + TW * 0.08f, cy + TH * 0.06f, daube)
+        // Eisenbänder
+        val band = PaintKit.line(PaintKit.shade(color, 0.45f), TH * 0.06f)
         canvas.drawLine(cx - TW * 0.22f, cy - TH * 0.30f, cx + TW * 0.22f, cy - TH * 0.30f, band)
         canvas.drawLine(cx - TW * 0.22f, cy - TH * 0.60f, cx + TW * 0.22f, cy - TH * 0.60f, band)
+        // Lichtkante an der zugewandten Flanke
+        canvas.drawLine(
+            cx - TW * 0.16f, cy - TH * 0.78f, cx - TW * 0.16f, cy + TH * 0.02f,
+            PaintKit.line(PaintKit.withAlpha(PaintKit.shade(color, 1.3f), 150), TH * 0.035f),
+        )
     }
 
     private fun regal(canvas: Canvas, cx: Float, cy: Float, color: Int) {
@@ -304,8 +314,26 @@ object PropPainter {
     }
 
     private fun brunnen(canvas: Canvas, cx: Float, cy: Float, color: Int, palette: Palette) {
-        PaintKit.cylinder(canvas, cx, cy, TW * 0.28f, TH * 0.45f, PaintKit.shade(color, 0.7f))
+        val stein = PaintKit.shade(color, 0.7f)
+        PaintKit.cylinder(canvas, cx, cy, TW * 0.28f, TH * 0.45f, stein)
+        // Mauerwerk-Fugen im Ring
+        val fuge = PaintKit.line(PaintKit.shade(stein, 0.7f), TH * 0.025f)
+        canvas.drawLine(cx - TW * 0.26f, cy - TH * 0.22f, cx + TW * 0.26f, cy - TH * 0.22f, fuge)
+        canvas.drawLine(cx - TW * 0.12f, cy - TH * 0.45f, cx - TW * 0.12f, cy - TH * 0.22f, fuge)
+        canvas.drawLine(cx + TW * 0.12f, cy - TH * 0.22f, cx + TW * 0.12f, cy + TH * 0.02f, fuge)
+        // Wasserspiegel mit Glanzpunkt
         canvas.drawOval(RectF(cx - TW * 0.20f, cy - TH * 0.55f, cx + TW * 0.20f, cy - TH * 0.35f), PaintKit.solid(palette.accent))
+        canvas.drawOval(
+            RectF(cx - TW * 0.10f, cy - TH * 0.51f, cx - TW * 0.02f, cy - TH * 0.46f),
+            PaintKit.solid(PaintKit.withAlpha(PaintKit.WEISS, 130)),
+        )
+        // Querbalken mit Seil und Eimer
+        val holz = PaintKit.line(0xFF5E3B21.toInt(), TH * 0.055f)
+        canvas.drawLine(cx - TW * 0.24f, cy - TH * 0.42f, cx - TW * 0.24f, cy - TH * 1.15f, holz)
+        canvas.drawLine(cx + TW * 0.24f, cy - TH * 0.42f, cx + TW * 0.24f, cy - TH * 1.15f, holz)
+        canvas.drawLine(cx - TW * 0.28f, cy - TH * 1.15f, cx + TW * 0.28f, cy - TH * 1.15f, holz)
+        canvas.drawLine(cx, cy - TH * 1.15f, cx, cy - TH * 0.80f, PaintKit.line(0xFFC7A26A.toInt(), TH * 0.03f))
+        canvas.drawRect(cx - TH * 0.09f, cy - TH * 0.80f, cx + TH * 0.09f, cy - TH * 0.64f, PaintKit.solid(0xFF8A5A34.toInt()))
     }
 
     private fun kessel(canvas: Canvas, cx: Float, cy: Float, color: Int) {
@@ -315,9 +343,18 @@ object PropPainter {
 
     private fun pflanze(canvas: Canvas, cx: Float, cy: Float, color: Int) {
         PaintKit.cylinder(canvas, cx, cy, TW * 0.14f, TH * 0.30f, 0xFF8A5A34.toInt())
-        val leaf = PaintKit.solid(0xFF2F7D46.toInt())
+        val gruen = 0xFF2F7D46.toInt()
+        val leaf = PaintKit.solid(gruen)
         canvas.drawOval(RectF(cx - TW * 0.20f, cy - TH * 1.05f, cx + TW * 0.04f, cy - TH * 0.25f), leaf)
         canvas.drawOval(RectF(cx - TW * 0.04f, cy - TH * 1.15f, cx + TW * 0.20f, cy - TH * 0.30f), leaf)
+        // Drittes, helleres Blatt plus Blattadern
+        canvas.drawOval(
+            RectF(cx - TW * 0.12f, cy - TH * 1.25f, cx + TW * 0.08f, cy - TH * 0.55f),
+            PaintKit.solid(PaintKit.shade(gruen, 1.2f)),
+        )
+        val ader = PaintKit.line(PaintKit.shade(gruen, 0.75f), TH * 0.025f)
+        canvas.drawLine(cx - TW * 0.02f, cy - TH * 1.18f, cx - TW * 0.02f, cy - TH * 0.60f, ader)
+        canvas.drawLine(cx - TW * 0.10f, cy - TH * 0.85f, cx + TW * 0.10f, cy - TH * 0.70f, ader)
         canvas.drawCircle(cx, cy - TH * 0.95f, TH * 0.10f, PaintKit.solid(color))
     }
 
@@ -360,7 +397,21 @@ object PropPainter {
             quadTo(cx + TW * 0.26f, cy - TH * 0.55f, cx + TW * 0.24f, cy)
             close()
         }, PaintKit.solid(grau))
-        canvas.drawCircle(cx - TW * 0.06f, cy - TH * 0.35f, TH * 0.07f, PaintKit.solid(PaintKit.shade(grau, 1.2f)))
+        // Schattenfacette rechts + Lichtkante links
+        canvas.drawPath(Path().apply {
+            moveTo(cx + TW * 0.06f, cy - TH * 0.58f)
+            quadTo(cx + TW * 0.24f, cy - TH * 0.50f, cx + TW * 0.24f, cy)
+            lineTo(cx + TW * 0.02f, cy)
+            close()
+        }, PaintKit.solid(PaintKit.shade(grau, 0.8f)))
+        canvas.drawLine(
+            cx - TW * 0.20f, cy - TH * 0.30f, cx - TW * 0.10f, cy - TH * 0.58f,
+            PaintKit.line(PaintKit.shade(grau, 1.25f), TH * 0.035f),
+        )
+        // Moosflecken
+        val moos = PaintKit.solid(PaintKit.withAlpha(0xFF3E8E4A.toInt(), 170))
+        canvas.drawCircle(cx - TW * 0.06f, cy - TH * 0.35f, TH * 0.07f, moos)
+        canvas.drawCircle(cx + TW * 0.08f, cy - TH * 0.18f, TH * 0.05f, moos)
     }
 
     private fun teppich(canvas: Canvas, cx: Float, cy: Float, color: Int) {

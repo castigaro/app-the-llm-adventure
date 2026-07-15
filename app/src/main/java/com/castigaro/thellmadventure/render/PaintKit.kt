@@ -31,11 +31,26 @@ object PaintKit {
         textAlign = Paint.Align.CENTER
     }
 
-    fun solid(color: Int): Paint = Paint(fill).apply { this.color = color }
+    // Paint-Caches: Die Maler fordern pro Frame hunderte Paints an — ohne
+    // Cache wären das ebenso viele Allokationen. WICHTIG: Zurückgegebene
+    // Paints dürfen von Aufrufern NICHT verändert werden (geteilte Instanzen);
+    // veränderlich ist nur [text]. Zeichnen läuft ausschließlich auf dem
+    // UI-Thread, darum reichen einfache HashMaps.
+    private val solidCache = HashMap<Int, Paint>()
+    private val lineCache = HashMap<Long, Paint>()
 
-    fun line(color: Int, width: Float): Paint = Paint(stroke).apply {
-        this.color = color
-        this.strokeWidth = width
+    fun solid(color: Int): Paint = solidCache.getOrPut(color) {
+        Paint(fill).apply { this.color = color }
+    }
+
+    fun line(color: Int, width: Float): Paint {
+        val key = (color.toLong() shl 32) or (width.toRawBits().toLong() and 0xFFFFFFFFL)
+        return lineCache.getOrPut(key) {
+            Paint(stroke).apply {
+                this.color = color
+                this.strokeWidth = width
+            }
+        }
     }
 
     /** Hellt (factor > 1) oder dunkelt (factor < 1) eine Farbe kanalweise ab. */
@@ -116,6 +131,10 @@ object PaintKit {
         }, solid(shade(color, 0.88f)))
         // Deckel (hell)
         canvas.drawPath(diamond(cx, topY, halfW, halfH), solid(shade(color, 1.12f)))
+        // Lichtkante an den oberen Deckelkanten — gibt jedem Quader Kontur
+        val bevel = line(shade(color, 1.35f), halfH * 0.12f)
+        canvas.drawLine(cx - halfW, topY, cx, topY - halfH, bevel)
+        canvas.drawLine(cx, topY - halfH, cx + halfW, topY, bevel)
     }
 
     /**

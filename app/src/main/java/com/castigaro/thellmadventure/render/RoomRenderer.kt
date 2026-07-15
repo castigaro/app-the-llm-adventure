@@ -28,6 +28,11 @@ object RoomRenderer {
                 val cy = IsoMath.tileCenterY(tx, ty)
                 val base = if ((tx + ty) % 2 == 0) pal.floorA else pal.floorB
                 canvas.drawPath(PaintKit.diamond(cx, cy, TW / 2f, TH / 2f), PaintKit.solid(base))
+                // Dielen-/Fliesenlinie entlang einer Rautenkante — dezente Textur
+                canvas.drawLine(
+                    cx - TW * 0.5f, cy, cx, cy - TH * 0.5f,
+                    PaintKit.line(PaintKit.shade(base, 0.93f), TH * 0.025f),
+                )
                 // Dezente, deterministische Akzent-Sprenkel
                 if ((tx * 31 + ty * 17) % 7 == 0) {
                     canvas.drawPath(

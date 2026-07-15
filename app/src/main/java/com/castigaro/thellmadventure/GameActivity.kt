@@ -320,6 +320,8 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
             setLoading(false, "")
             result.onSuccess { parcel ->
                 // Kein Ortswechsel: der Nebel weicht, die Karte wächst weiter.
+                // Die Terrain-Pictures der Nachbarn sind jetzt veraltet (Säume).
+                binding.isoView.kartenCacheLeeren()
                 binding.roomLabel.text =
                     save.world.outdoor?.parcelForTile(save.ptx, save.pty)?.name ?: parcel.name
                 commentNewPlace(parcel.name)
@@ -351,6 +353,10 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
         busy = loading
         binding.loadingOverlay.root.visibility = if (loading) View.VISIBLE else View.GONE
         binding.loadingOverlay.loadingText.text = text
+        // Während der Generierung ruht die Spielfläche: spart Strom und
+        // verhindert, dass der Zeichen-Thread die halb gebaute Karte liest,
+        // die der IO-Thread gerade manifestiert.
+        binding.isoView.animate = !loading
     }
 
     /** Eintrittskachel im Zielraum: eine Kachel einwärts der Rücktür. */
@@ -460,6 +466,9 @@ class GameActivity : AppCompatActivity(), IsoView.Listener {
     }
 
     private fun refreshInventory() {
+        // Zustandsänderungen (Aufnehmen, Effekte, Craften) sollen sofort
+        // sichtbar werden — die gestufte Animationsschleife könnte gerade ruhen.
+        binding.isoView.invalidate()
         val inventory = save.world.inventory()
         barAdapter.submit(inventory, activeItemId)
         binding.buttonCraft.isEnabled = inventory.size >= 2

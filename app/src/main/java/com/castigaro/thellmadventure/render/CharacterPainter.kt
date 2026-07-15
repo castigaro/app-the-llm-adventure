@@ -95,13 +95,22 @@ object CharacterPainter {
                 figH * 0.20f to bottom, figH * 0.20f to top,
             )
         }
+        val kontur = PaintKit.line(PaintKit.shade(colorA, 0.55f), figH * 0.018f)
         if (path != null) {
             canvas.drawPath(path, PaintKit.solid(colorA))
+            canvas.drawPath(path, kontur)
         } else {
             canvas.drawCircle(0f, (top + -figH * 0.40f) / 2f, figH * 0.26f, PaintKit.solid(colorA))
+            canvas.drawCircle(0f, (top + -figH * 0.40f) / 2f, figH * 0.26f, kontur)
         }
-        // Gürtel/Zierstreifen in Farb-Slot B
+        // Lichtseite: schmaler heller Streifen an der zugewandten Flanke
+        canvas.drawLine(
+            figH * 0.10f, top + figH * 0.04f, figH * 0.13f, bottom - figH * 0.04f,
+            PaintKit.line(PaintKit.withAlpha(PaintKit.shade(colorA, 1.35f), 160), figH * 0.03f),
+        )
+        // Gürtel mit Schnalle in Farb-Slot B
         canvas.drawRect(-figH * 0.18f, -figH * 0.46f, figH * 0.18f, -figH * 0.41f, PaintKit.solid(colorB))
+        canvas.drawRect(-figH * 0.025f, -figH * 0.465f, figH * 0.025f, -figH * 0.405f, PaintKit.solid(PaintKit.GOLD))
     }
 
     private fun headgear(canvas: Canvas, gear: Headgear, headY: Float, headR: Float, color: Int) {
