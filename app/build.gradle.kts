@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.castigaro.thellmadventure"
+    namespace = "com.appsonar.thellmadventure"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.castigaro.thellmadventure"
+        applicationId = "com.appsonar.thellmadventure"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.3.2"
+        versionCode = 6
+        versionName = "0.4.0"
     }
 
     // Keystore und Passwort kommen aus GitHub-Secrets (siehe CI-Workflow).
@@ -24,7 +24,7 @@ android {
         create("release") {
             storeFile = releaseKeystore
             storePassword = releaseStorePassword
-            keyAlias = "markdownviewer"
+            keyAlias = "appsonar"
             keyPassword = releaseStorePassword
         }
     }

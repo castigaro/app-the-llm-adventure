@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.castigaro.thellmadventure.render.IsoView
+    <com.appsonar.thellmadventure.render.IsoView
         android:id="@+id/isoView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

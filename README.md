@@ -48,8 +48,8 @@ Das Spiel lebt von der KI-Generierung — es gibt bewusst **keinen
 Offline-Modus**. Ohne hinterlegten Anthropic- oder OpenAI-Key führt der
 Spielstart zu einem Einrichtungsbildschirm. Die Key-Verwaltung stammt aus der
 gemeinsamen Bibliothek
-[`android-apps-common`](https://github.com/castigaro/android-apps-common)
-(`com.castigaro.common.llm.ProviderSettings`); der Key bleibt auf dem Gerät,
+[`android-apps-common`](https://github.com/appsonar/android-apps-common)
+(`com.appsonar.common.llm.ProviderSettings`); der Key bleibt auf dem Gerät,
 die geschätzten Kosten werden mitgezählt.
 
 ## Speichern

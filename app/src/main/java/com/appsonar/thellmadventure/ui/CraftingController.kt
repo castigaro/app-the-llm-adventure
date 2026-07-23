@@ -1,0 +1,137 @@
+package com.appsonar.thellmadventure.ui
+
+import android.view.View
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.appsonar.thellmadventure.databinding.ViewCraftingOverlayBinding
+import com.appsonar.thellmadventure.world.Item
+
+/**
+ * Steuert das Minecraft-artige Crafting-Raster: drei Eingabe-Slots, ein
+ * Ergebnis-Slot und darunter das Inventar zum Bestücken. Tippe einen Slot an,
+ * dann einen Gegenstand aus dem Inventar; ein gefüllter Slot wird durch
+ * erneutes Antippen geleert. „Verbinden" ist ab zwei belegten Slots aktiv.
+ */
+class CraftingController(
+    private val binding: ViewCraftingOverlayBinding,
+    private val inventory: () -> List<Item>,
+    private val onCombine: (List<String>) -> Unit,
+) {
+
+    private val slots = arrayOfNulls<Item>(3)
+    private var selectedSlot = 0
+    private val slotViews = listOf(binding.craftSlot0, binding.craftSlot1, binding.craftSlot2)
+
+    private val invAdapter = InventoryBarAdapter(::placeInSlot)
+
+    init {
+        binding.craftInventory.layoutManager =
+            LinearLayoutManager(binding.root.context, LinearLayoutManager.HORIZONTAL, false)
+        binding.craftInventory.adapter = invAdapter
+
+        slotViews.forEachIndexed { index, view ->
+            view.setOnClickListener { onSlotTap(index) }
+        }
+        binding.craftCombine.setOnClickListener {
+            onCombine(slots.filterNotNull().map { it.id })
+        }
+        binding.craftCancel.setOnClickListener { close() }
+        // Tipp neben das Panel schließt die Werkbank.
+        binding.craftRoot.setOnClickListener { close() }
+    }
+
+    fun open() {
+        reset()
+        refreshInventory()
+        binding.root.visibility = View.VISIBLE
+    }
+
+    fun close() {
+        binding.root.visibility = View.GONE
+    }
+
+    fun refreshInventory() {
+        // Bereits in Slots liegende Gegenstände nicht doppelt anbieten.
+        val used = slots.filterNotNull().map { it.id }.toSet()
+        invAdapter.submit(inventory().filter { it.id !in used }, selectedId = null)
+    }
+
+    fun reset() {
+        slots.fill(null)
+        selectedSlot = 0
+        renderSlots()
+        binding.craftResult.spec = null
+        binding.craftCombine.isEnabled = false
+        binding.craftFeedback.visibility = View.GONE
+    }
+
+    /**
+     * Zeigt das Urteil der letzten Kombination im Overlay an — die
+     * Kommentarzeile läge hinter dem vollflächigen Overlay und wäre unsichtbar.
+     */
+    fun showResult(text: String) {
+        binding.craftFeedback.text = text
+        binding.craftFeedback.visibility = View.VISIBLE
+    }
+
+    private fun onSlotTap(index: Int) {
+        if (slots[index] != null) {
+            // Gefüllten Slot leeren
+            slots[index] = null
+            selectedSlot = index
+        } else {
+            selectedSlot = index
+        }
+        renderSlots()
+        refreshInventory()
+        updateCombineState()
+    }
+
+    private fun placeInSlot(item: Item) {
+        // In den ausgewählten (oder ersten freien) Slot legen.
+        val target = if (slots[selectedSlot] == null) selectedSlot
+        else slots.indexOfFirst { it == null }
+        if (target < 0) return
+        slots[target] = item
+        selectedSlot = (target + 1).coerceAtMost(2)
+        renderSlots()
+        refreshInventory()
+        updateCombineState()
+    }
+
+    private fun renderSlots() {
+        slotViews.forEachIndexed { index, view ->
+            view.bind(slots[index]?.icon, slots[index]?.name ?: "")
+            view.highlight = index == selectedSlot
+        }
+        renderSlotNames()
+    }
+
+    /** Schreibt die eingelegten Gegenstände aus („Handspiegel + Feuerstein + …"). */
+    private fun renderSlotNames() {
+        val text = slotNamesText(slots.toList())
+        if (text == null) {
+            binding.craftSlotNames.visibility = View.GONE
+        } else {
+            binding.craftSlotNames.text = text
+            binding.craftSlotNames.visibility = View.VISIBLE
+        }
+    }
+
+    private fun updateCombineState() {
+        binding.craftCombine.isEnabled = slots.count { it != null } >= 2
+    }
+
+    companion object {
+        /**
+         * Baut die Namenszeile der Slots: belegte mit „ + " verbunden, ein
+         * angehängtes „ + …" solange noch ein Slot frei ist; null bei leerer Bank.
+         */
+        fun slotNamesText(slots: List<Item?>): String? {
+            val filled = slots.filterNotNull()
+            if (filled.isEmpty()) return null
+            val namen = filled.joinToString(" + ") { it.name }
+            val offen = if (slots.any { it == null }) " + …" else ""
+            return namen + offen
+        }
+    }
+}
