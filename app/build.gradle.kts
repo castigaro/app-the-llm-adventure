@@ -11,8 +11,8 @@ android {
         applicationId = "com.appsonar.thellmadventure"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "0.4.0"
+        versionCode = 7
+        versionName = "0.4.1"
     }
 
     // Keystore und Passwort kommen aus GitHub-Secrets (siehe CI-Workflow).
