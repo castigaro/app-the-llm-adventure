@@ -122,6 +122,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val VERSION_URL =
-            "https://github.com/appsonar/app-the-llm-adventure/releases/download/latest/the-llm-adventure-version.json"
+            "https://github.com/castigaro/app-the-llm-adventure/releases/download/latest/the-llm-adventure-version.json"
     }
 }
